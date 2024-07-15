@@ -1,40 +1,45 @@
+#!/usr/bin/python3
 import cv2
 import os
 import numpy as np
 # from tri import sonar_triangulation
-from utils import pose_to_transform_matrix
 # from anp import AnPAlgorithm
 import random
+random.seed(2)
 import rospy
 from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import PoseArray, PoseStamped, Point, Quaternion, Twist
+from geometry_msgs.msg import PoseStamped, Point, Quaternion, Twist
 from visualization_msgs.msg import Marker
-
-from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped
+from lias_anp.msg import SonarData  # 确保替换为你的包名
+from std_msgs.msg import Header
 import tf
 
 from scipy.spatial.transform import Rotation as R
 
-# left right corner is (0,0) bottom right (50,100)
-def convert_points_to_polar(points, width, height): # 512 # 798
-    # 参考点(center)
-    center = (width / 2, height)
+def quaternion_to_rotation_matrix(quaternion):
+    """将四元数转换为旋转矩阵"""
+    return tf.transformations.quaternion_matrix(quaternion)[:3, :3]
 
-    # 提取x和y坐标
-    x_coords = -points[:, 0, 0] + width
-    y_coords = points[:, 0, 1]
-
-    # 计算距离(distance)
-    distances = 20/height*np.sqrt((x_coords - center[0])**2 + (y_coords - center[1])**2)
-
-    # 计算角度(Theta)（以弧度表示）
-    thetas = np.arctan2(center[1] - y_coords, x_coords - center[0]) - np.pi/2
-
-    return thetas, distances
-
+def pose_to_transform_matrix(pose):
+    """将位姿转换为齐次变换矩阵"""
+    position = pose['position']
+    orientation = pose['orientation']
+    
+    # 提取平移向量
+    translation = np.array([position['x'], position['y'], position['z']])
+    
+    # 提取四元数并转换为旋转矩阵
+    quaternion = [orientation['x'], orientation['y'], orientation['z'], orientation['w']]
+    rotation_matrix = quaternion_to_rotation_matrix(quaternion)
+    
+    # 构建齐次变换矩阵
+    transform_matrix = np.eye(4)
+    transform_matrix[:3, :3] = rotation_matrix
+    transform_matrix[:3, 3] = translation
+    
+    return transform_matrix
 
 class Anp_sim:
     def __init__(self):
@@ -56,26 +61,201 @@ class Anp_sim:
         # visualize
         self.img_match = None
         self.bridge = CvBridge()
-        self.image_pub_1 = rospy.Publisher("/sonar_image", Image, queue_size=10)
-        # self.image_pub_2 = rospy.Publisher("/selected_matches", Image, queue_size=10)
-        # self.pose_est_pub = rospy.Publisher('/robot_pose', PoseStamped, queue_size=10)
-        self.sonar_marker_pub = rospy.Publisher('/sonar_view', Marker, queue_size=10)
-        self.marker_pub = rospy.Publisher('/visualization_pts', Marker, queue_size=10)
+
+        self.sonar_image_pub = rospy.Publisher('/sim/sonar_image', Image, queue_size=10)
+        self.sonar_data_pub = rospy.Publisher('/sim/sonar_data_with_pose', SonarData, queue_size=10)
+        # self.pose_pub = rospy.Publisher('/sim/pose', PoseStamped, queue_size=10)
+
+        self.sonar_marker_pub = rospy.Publisher('/rviz/sonar_view', Marker, queue_size=10)
+        self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
+        
         self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.cmd_vel_callback)
         # self.traj_est_pub = rospy.Publisher("/trajectory_est", Path, queue_size=10)
         # self.traj_gt_pub = rospy.Publisher("/trajectory_gt", Path, queue_size=10)
 
-        # Initialize the sonar view marker
+        # Sonar
         # Define the sonar's field of view as a fan shape with top and bottom faces
         self.fov_horizontal = np.deg2rad(60)  # 90 degrees horizontal field of view
         self.fov_vertical = np.deg2rad(10)  # 60 degrees vertical field of view
-        self.range_max = 2.0  # 5 meters range
-
-        self.__pts_in_fov_index = None
+        self.range_max = 5.0  # 5 meters range
+        # Sonar image
+        self.img_width, self.img_height = 500, 500
+        self.s_p = None
+        self.w_p = None
+        self.si_q = None
+        self.si_q_theta_Rho = None
         
-        self.rviz_init()
+        self.__timestep = 0
+        
+        self.__rviz_init()
     
-    def rviz_init(self):
+    def cmd_vel_callback(self, msg):
+        dt = 1.0 / 100.0  # Assuming the loop runs at 10 Hz
+
+        # Create the translation vector from the linear velocities
+        translation = np.array([msg.linear.x * dt, msg.linear.y * dt, msg.linear.z * dt])
+
+        # Create the rotation matrix from the angular velocities
+        delta_rotation_matrix = tf.transformations.euler_matrix(
+            msg.angular.x * dt,
+            msg.angular.y * dt,
+            msg.angular.z * dt
+        )
+
+        # Combine translation and rotation into a transformation matrix
+        delta_T_robot = tf.transformations.compose_matrix(translate=translation) @ delta_rotation_matrix
+        delta_T_world = self.pose_T @ delta_T_robot
+        # Update the pose transformation matrix
+        self.pose_T = delta_T_world
+
+        # Extract the updated position and orientation from the transformation matrix
+        updated_translation = tf.transformations.translation_from_matrix(self.pose_T)
+        updated_orientation = tf.transformations.quaternion_from_matrix(self.pose_T)
+
+        # Update the pose dictionary
+        self.pose['position']['x'] = updated_translation[0]
+        self.pose['position']['y'] = updated_translation[1]
+        self.pose['position']['z'] = updated_translation[2]
+        self.pose['orientation']['x'] = updated_orientation[0]
+        self.pose['orientation']['y'] = updated_orientation[1]
+        self.pose['orientation']['z'] = updated_orientation[2]
+        self.pose['orientation']['w'] = updated_orientation[3]
+    
+    def __points_in_fov(self):
+        """
+        Determine which points are within the field of view (FOV) of a sonar.
+
+        Returns:
+        np.ndarray: A boolean array of length N indicating which points are within the FOV.
+        """
+        sonar_position = np.array([self.pose['position']['x'], self.pose['position']['y'], self.pose['position']['z']])
+        sonar_orientation = np.array([self.pose['orientation']['x'], self.pose['orientation']['y'], self.pose['orientation']['z'], self.pose['orientation']['w']])
+        
+        # Convert points to the sonar's coordinate frame
+        points_relative = self.points - sonar_position
+        r = R.from_quat(sonar_orientation)
+        points_in_sonar_frame = r.inv().apply(points_relative)
+
+        # Calculate angles and distances in the sonar's coordinate frame
+        x, y, z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
+        distances = np.sqrt(x**2 + y**2 + z**2)
+        horizontal_angles = np.arctan2(y, x)
+        vertical_angles = np.arctan2(z, np.sqrt(x**2 + y**2))
+
+        # Check if self.points are within the FOV and range
+        within_horizontal_fov = np.abs(horizontal_angles) <= (self.fov_horizontal / 2)
+        within_vertical_fov = np.abs(vertical_angles) <= (self.fov_vertical / 2)
+        within_range = distances <= self.range_max
+        
+        pts_in_fov_index = within_horizontal_fov & within_vertical_fov & within_range
+        
+        return pts_in_fov_index, self.pose
+    
+    def publish_sonar_image_and_data(self):
+        # Get points that are within the FOV
+        pts_in_fov_index, pose = self.__points_in_fov() # get index of pts in Fov stored in self.__pts_in_fov
+        points_in_fov = self.points[pts_in_fov_index]        
+        
+        # Convert points to the sonar's coordinate frame
+        sonar_position = np.array([self.pose['position']['x'], self.pose['position']['y'], self.pose['position']['z']])
+        sonar_orientation = np.array([self.pose['orientation']['x'], self.pose['orientation']['y'], self.pose['orientation']['z'], self.pose['orientation']['w']])
+        points_relative = points_in_fov - sonar_position
+        r = R.from_quat(sonar_orientation)
+        points_in_sonar_frame = r.inv().apply(points_relative)
+
+        # Initialize a blank image
+        image = np.ones((self.img_height, self.img_width,3), dtype=np.uint8) * 255
+        center = (int(self.img_width/2), 0)
+        radius = int(self.img_height)
+        start_angle = -int(np.rad2deg(self.fov_horizontal)/2)  # 对称轴为中轴，扇形从-60度到60度
+        end_angle = int(np.rad2deg(self.fov_horizontal)/2)
+        cv2.ellipse(image, center, (radius, radius), 90, start_angle, end_angle, (0, 0, 0), -1)
+
+        # Convert points to polar coordinates and map to image coordinates
+        X, Y, Z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
+        theta = np.arctan2(Y, X)
+        Rho = np.sqrt(X**2 + Y**2 + Z**2)
+        ps_x = Rho * np.sin(theta)
+        ps_y = Rho * np.cos(theta)
+        
+        si_q = []
+        si_q_theta_Rho = []
+        for x, y, theta_i, Rho_i in zip(ps_x, ps_y, theta, Rho):
+            # Normalize to image coordinates
+            x_img = int((x / self.range_max) * (self.img_width) + (self.img_width/2))
+            y_img = int((y / self.range_max) * (self.img_height) )
+            # image[y_img, x_img] = (255, 255, 255)
+            cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
+            si_q.append(np.array([self.img_width/2-x_img, y_img]))
+            si_q_theta_Rho.append(np.array([-theta_i, Rho_i]))
+                
+        # Convert to ROS Image message and publish
+        ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
+        self.sonar_image_pub.publish(ros_image)
+        
+        self.w_p = points_in_fov
+        self.s_p = points_in_sonar_frame
+        self.si_q = np.array(si_q)
+        self.si_q_theta_Rho = np.array(si_q_theta_Rho)
+        
+        # Publish SonarData with pose
+        sonar_data_msg = SonarData()
+        sonar_data_msg.header = Header()
+        sonar_data_msg.header.stamp = rospy.Time.now()
+        sonar_data_msg.indices = np.where(pts_in_fov_index)[0].tolist()
+        sonar_data_msg.w_p = self.w_p.flatten()
+        sonar_data_msg.s_p = self.s_p.flatten()
+        sonar_data_msg.si_q = self.si_q.flatten()
+        sonar_data_msg.si_q_theta_Rho = self.si_q_theta_Rho.flatten()
+        sonar_data_msg.timestep = self.__timestep
+        sonar_data_msg.pose.position.x = pose['position']['x']
+        sonar_data_msg.pose.position.y = pose['position']['y']
+        sonar_data_msg.pose.position.z = pose['position']['z']
+        sonar_data_msg.pose.orientation.x = pose['orientation']['x']
+        sonar_data_msg.pose.orientation.y = pose['orientation']['y']
+        sonar_data_msg.pose.orientation.z = pose['orientation']['z']
+        sonar_data_msg.pose.orientation.w = pose['orientation']['w']
+        # indices = np.where(pts_in_fov_index)[0]
+        # print(indices)
+
+        self.sonar_data_pub.publish(sonar_data_msg)
+
+    # def __publish_pose(self):
+    #     pose_stamped_msg = PoseStamped()
+    #     pose_stamped_msg.header.stamp = rospy.Time.now()
+    #     pose_stamped_msg.header.frame_id = "map"
+
+    #     pose_stamped_msg.pose.position = Point(
+    #         self.pose['position']['x'],
+    #         self.pose['position']['y'],
+    #         self.pose['position']['z']
+    #     )
+    #     pose_stamped_msg.pose.orientation = Quaternion(
+    #         self.pose['orientation']['x'],
+    #         self.pose['orientation']['y'],
+    #         self.pose['orientation']['z'],
+    #         self.pose['orientation']['w']
+    #     )
+        
+    #     self.pose_pub.publish(pose_stamped_msg)
+
+    def main_process(self, step=1):        
+        rospy.init_node('anp_sim')
+        rate = rospy.Rate(5)
+        while not rospy.is_shutdown():
+            self.publish_sonar_image_and_data()
+            self.visualize()
+            self.__timestep += 1
+            rate.sleep()
+            
+    def visualize(self):
+        # self.publish_images()
+        # self.publish_traj_gt()
+        self.__publish_points()
+        self.__publish_sonar_view()
+        return
+    
+    def __rviz_init(self):
         self.marker = Marker()
         self.marker.header.frame_id = "map"
         self.marker.ns = "sonar"
@@ -90,7 +270,6 @@ class Anp_sim:
         self.marker.color.g = 1.0
         self.marker.color.b = 0.0
 
-     
         # Define the vertices of the fan shape
         origin = Point(0, 0, 0)
         angle_step = np.deg2rad(5)  # Angle step for the fan shape
@@ -134,120 +313,11 @@ class Anp_sim:
             self.marker.points.append(bottom_points[i + 1])
             self.marker.points.append(top_points[i])
             self.marker.points.append(top_points[i + 1])
-        
-    def cmd_vel_callback(self, msg):
-        dt = 1.0 / 100.0  # Assuming the loop runs at 10 Hz
 
-        # Create the translation vector from the linear velocities
-        translation = np.array([msg.linear.x * dt, msg.linear.y * dt, msg.linear.z * dt])
-
-        # Create the rotation matrix from the angular velocities
-        delta_rotation_matrix = tf.transformations.euler_matrix(
-            msg.angular.x * dt,
-            msg.angular.y * dt,
-            msg.angular.z * dt
-        )
-
-        # Combine translation and rotation into a transformation matrix
-        delta_T_robot = tf.transformations.compose_matrix(translate=translation) @ delta_rotation_matrix
-        delta_T_world = self.pose_T @ delta_T_robot
-        # Update the pose transformation matrix
-        self.pose_T = delta_T_world
-
-        # Extract the updated position and orientation from the transformation matrix
-        updated_translation = tf.transformations.translation_from_matrix(self.pose_T)
-        updated_orientation = tf.transformations.quaternion_from_matrix(self.pose_T)
-
-        # Update the pose dictionary
-        self.pose['position']['x'] = updated_translation[0]
-        self.pose['position']['y'] = updated_translation[1]
-        self.pose['position']['z'] = updated_translation[2]
-        self.pose['orientation']['x'] = updated_orientation[0]
-        self.pose['orientation']['y'] = updated_orientation[1]
-        self.pose['orientation']['z'] = updated_orientation[2]
-        self.pose['orientation']['w'] = updated_orientation[3]
-    
-        
-    def points_in_fov(self):
+    def __publish_sonar_view(self):
         """
-        Determine which points are within the field of view (FOV) of a sonar.
-
-        Returns:
-        np.ndarray: A boolean array of length N indicating which points are within the FOV.
+        publish sonar in rviz       
         """
-        sonar_position = np.array([self.pose['position']['x'], self.pose['position']['y'], self.pose['position']['z']])
-        sonar_orientation = np.array([self.pose['orientation']['x'], self.pose['orientation']['y'], self.pose['orientation']['z'], self.pose['orientation']['w']])
-        
-        # Convert points to the sonar's coordinate frame
-        points_relative = self.points - sonar_position
-        r = R.from_quat(sonar_orientation)
-        points_in_sonar_frame = r.inv().apply(points_relative)
-
-        # Calculate angles and distances in the sonar's coordinate frame
-        x, y, z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
-        distances = np.sqrt(x**2 + y**2 + z**2)
-        horizontal_angles = np.arctan2(y, x)
-        vertical_angles = np.arctan2(z, np.sqrt(x**2 + y**2))
-
-        # Check if self.points are within the FOV and range
-        within_horizontal_fov = np.abs(horizontal_angles) <= (self.fov_horizontal / 2)
-        within_vertical_fov = np.abs(vertical_angles) <= (self.fov_vertical / 2)
-        within_range = distances <= self.range_max
-        
-        self.__pts_in_fov_index = within_horizontal_fov & within_vertical_fov & within_range
-        
-    
-    def publish_sonar_image(self):
-        # Initialize a blank image
-        img_width, img_height = 500, 500
-        image = np.zeros((img_height, img_width), dtype=np.uint8)
-
-        # Map points to image coordinates
-        for point in self.__points_in_fov:
-            x_img = int((point[0] / 2.0) * img_width / 2 + img_width / 2)
-            y_img = int((point[1] / 2.0) * img_height / 2 + img_height / 2)
-            if 0 <= x_img < img_width and 0 <= y_img < img_height:
-                image[y_img, x_img] = 255
-
-        # Convert to ROS Image message and publish
-        ros_image = self.bridge.cv2_to_imgmsg(image, encoding="mono8")
-        self.sonar_image_pub.publish(ros_image)
-
-    def main_process(self, step=1):
-        rospy.init_node('anp_sim')
-        rate = rospy.Rate(5)
-        while not rospy.is_shutdown():
-            self.points_in_fov() # get index of pts in Fov stored in self.__pts_in_fov
-            self.visualize()
-            rate.sleep()
-            
-    def visualize(self):
-        # self.publish_images()
-        # self.publish_traj_gt()
-        self.publish_points()
-        self.publish_sonar_view()
-        return
-    
-    def publish_pose(self):
-        pose_stamped_msg = PoseStamped()
-        pose_stamped_msg.header.stamp = rospy.Time.now()
-        pose_stamped_msg.header.frame_id = "map"
-
-        pose_stamped_msg.pose.position = Point(
-            self.pose['position']['x'],
-            self.pose['position']['y'],
-            self.pose['position']['z']
-        )
-        pose_stamped_msg.pose.orientation = Quaternion(
-            self.pose['orientation']['x'],
-            self.pose['orientation']['y'],
-            self.pose['orientation']['z'],
-            self.pose['orientation']['w']
-        )
-        
-        self.pose_est_pub.publish(pose_stamped_msg)
-    
-    def publish_sonar_view(self):
         self.marker.header.stamp = rospy.Time.now()
         self.marker.pose.position = Point(
             self.pose['position']['x'],
@@ -262,7 +332,10 @@ class Anp_sim:
         )
         self.sonar_marker_pub.publish(self.marker)
     
-    def publish_points(self):
+    def __publish_points(self):
+        """
+        publish points in rviz       
+        """
         marker = Marker()
         marker.header.frame_id = "map"
         marker.header.stamp = rospy.Time.now()
@@ -285,6 +358,7 @@ class Anp_sim:
 
         self.marker_pub.publish(marker)
 
+    
 
 if __name__ == '__main__':
     estimator = Anp_sim()

@@ -1,5 +1,7 @@
 import numpy as np
 import tf
+from geometry_msgs.msg import PoseStamped
+
 
 def quaternion_to_rotation_matrix(quaternion):
     """将四元数转换为旋转矩阵"""
@@ -7,14 +9,14 @@ def quaternion_to_rotation_matrix(quaternion):
 
 def pose_to_transform_matrix(pose):
     """将位姿转换为齐次变换矩阵"""
-    position = pose['position']
-    orientation = pose['orientation']
+    position = pose.position
+    orientation = pose.orientation
     
     # 提取平移向量
-    translation = np.array([position['x'], position['y'], position['z']])
+    translation = np.array([position.x, position.y, position.z])
     
     # 提取四元数并转换为旋转矩阵
-    quaternion = [orientation['x'], orientation['y'], orientation['z'], orientation['w']]
+    quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
     rotation_matrix = quaternion_to_rotation_matrix(quaternion)
     
     # 构建齐次变换矩阵
