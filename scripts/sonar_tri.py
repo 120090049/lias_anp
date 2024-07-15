@@ -136,15 +136,23 @@ class TriSim:
                     theta_Rho, theta_Rho_prime = get_match_pairs(self.si_q_theta_Rho, self.pts_indice, self.si_q_theta_Rho_prime, self.pts_indice_prime)
                     if len(theta_Rho): 
                         determinant = compute_D(self.R, self.t, theta_Rho[0][0], theta_Rho_prime[0][0])
-                        data = f"R: {self.R.tolist()}, t: {self.t.tolist()}, theta_Rho: {theta_Rho.tolist()}, theta_Rho_prime: {theta_Rho_prime.tolist()}"
+                        data = f"D: {determinant}, R: {self.R.tolist()}, t: {self.t.tolist()}, theta_Rho: {theta_Rho.tolist()}, theta_Rho_prime: {theta_Rho_prime.tolist()}\n"
         
-                    if determinant > 0.1:
-                        self.save_data('non_deg.txt', data)
-                    else:
-                        if not np.allclose(self.R, np.eye(3)) or not np.allclose(self.t, np.zeros((3,))):
-                            self.save_data('deg.txt', data)
+                        if determinant > 0.01:
+                            with open('non_deg.txt', 'a') as file:
+                                file.write(data)
+                            rospy.loginfo("determinant:\n%s\n", determinant)
+                        else:
+                            if not np.allclose(self.R, np.eye(3) , atol=0.03): # rotation
+                                with open('deg_rot.txt', 'a') as file:
+                                    file.write(data)
+                                rospy.loginfo("deg_rot-determinant:\n%s\n", determinant)
                             
-                    rospy.loginfo("determinant:\n%s\n", determinant)
+                            elif not np.allclose(self.t, np.zeros((3,)), atol=0.2):
+                                with open('deg_trans.txt', 'a') as file:
+                                    file.write(data)
+                                rospy.loginfo("deg_trans-determinant:\n%s\n", determinant)
+                            
             else:
                 self.pose = data.pose
                 self.pose_T = pose_to_transform_matrix(self.pose)

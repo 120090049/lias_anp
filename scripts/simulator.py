@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import cv2
-import os
 import numpy as np
 # from tri import sonar_triangulation
 # from anp import AnPAlgorithm
@@ -44,12 +43,20 @@ def pose_to_transform_matrix(pose):
 class Anp_sim:
     def __init__(self):
         self.points_rviz = []
-
-        for _ in range(100):
-            x = random.uniform(-5, 5)
-            y = random.uniform(-5, 5)
-            z = random.uniform(-1, 1)
-            self.points_rviz.append(Point(x, y, z))
+        self.xmin = -5
+        self.xmax = 5
+        self.ymin = -5
+        self.ymax = 5
+        self.zmin = -1
+        self.zmax = 1
+        
+        # for _ in range(100):
+        #     x = random.uniform(xmin, xmax)
+        #     y = random.uniform(ymin, ymax)
+        #     z = random.uniform(zmin, zmax)
+        #     self.points_rviz.append(Point(x, y, z))
+       
+        self.points_rviz.append(Point(2, 0, 0))
         self.points = np.array([[point.x, point.y, point.z] for point in self.points_rviz])
 
         self.sonar_image = None
@@ -75,8 +82,8 @@ class Anp_sim:
 
         # Sonar
         # Define the sonar's field of view as a fan shape with top and bottom faces
-        self.fov_horizontal = np.deg2rad(60)  # 90 degrees horizontal field of view
-        self.fov_vertical = np.deg2rad(10)  # 60 degrees vertical field of view
+        self.fov_horizontal = np.deg2rad(120)  # 90 degrees horizontal field of view
+        self.fov_vertical = np.deg2rad(40)  # 60 degrees vertical field of view
         self.range_max = 5.0  # 5 meters range
         # Sonar image
         self.img_width, self.img_height = 500, 500
@@ -104,9 +111,22 @@ class Anp_sim:
 
         # Combine translation and rotation into a transformation matrix
         delta_T_robot = tf.transformations.compose_matrix(translate=translation) @ delta_rotation_matrix
-        delta_T_world = self.pose_T @ delta_T_robot
+        T_world = self.pose_T @ delta_T_robot
+        
+        # 限制平移部分在指定边界内
+        T_world_t = T_world[:3, 3]
+        T_world_t[0] = np.clip(T_world_t[0], -2, 2)
+        T_world_t[1] = np.clip(T_world_t[1], -2, 2)
+        T_world_t[2] = np.clip(T_world_t[2], self.zmin, self.zmax)
+        # T_world_t[0] = np.clip(T_world_t[0], self.xmin, self.xmax)
+        # T_world_t[1] = np.clip(T_world_t[1], self.ymin, self.ymax)
+        # T_world_t[2] = np.clip(T_world_t[2], self.zmin, self.zmax)
+        print(T_world_t)
+        # 将调整后的平移部分放回 T_world 矩阵中
+        T_world[:3, 3] = T_world_t
+        
         # Update the pose transformation matrix
-        self.pose_T = delta_T_world
+        self.pose_T = T_world
 
         # Extract the updated position and orientation from the transformation matrix
         updated_translation = tf.transformations.translation_from_matrix(self.pose_T)
@@ -220,37 +240,16 @@ class Anp_sim:
 
         self.sonar_data_pub.publish(sonar_data_msg)
 
-    # def __publish_pose(self):
-    #     pose_stamped_msg = PoseStamped()
-    #     pose_stamped_msg.header.stamp = rospy.Time.now()
-    #     pose_stamped_msg.header.frame_id = "map"
-
-    #     pose_stamped_msg.pose.position = Point(
-    #         self.pose['position']['x'],
-    #         self.pose['position']['y'],
-    #         self.pose['position']['z']
-    #     )
-    #     pose_stamped_msg.pose.orientation = Quaternion(
-    #         self.pose['orientation']['x'],
-    #         self.pose['orientation']['y'],
-    #         self.pose['orientation']['z'],
-    #         self.pose['orientation']['w']
-    #     )
-        
-    #     self.pose_pub.publish(pose_stamped_msg)
-
     def main_process(self, step=1):        
         rospy.init_node('anp_sim')
         rate = rospy.Rate(5)
         while not rospy.is_shutdown():
             self.publish_sonar_image_and_data()
-            self.visualize()
+            self.__visualize()
             self.__timestep += 1
             rate.sleep()
             
-    def visualize(self):
-        # self.publish_images()
-        # self.publish_traj_gt()
+    def __visualize(self):
         self.__publish_points()
         self.__publish_sonar_view()
         return
