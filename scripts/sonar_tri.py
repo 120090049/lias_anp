@@ -120,45 +120,65 @@ class TriSim:
         
         if len(self.pts_indice) > 0:
             # 打印接收到的PoseStamped消息
-            if self.pose_T is not None:
-                T0 = self.pose_T
-                self.pose = data.pose
-                T1 = pose_to_transform_matrix(self.pose)   
+            
+            self.pose = data.pose
+            self.pose_T = pose_to_transform_matrix(self.pose)
+    
+            with open('record.txt', 'a') as file:
+                data = f"Pose: {self.pose_T.tolist()}; theta_Rho: {self.si_q_theta_Rho.tolist()}; s_p: {self.s_p.tolist()}; w_p: {self.w_p.tolist()}\n"
+                file.write(data)
 
-                # Calculate the transition matrix from t0 to t1 using left multiplication
-                delt_T = T1 @ np.linalg.inv(T0)
+        
+    # def sonar_callback(self, data):
+    #     # 将消息数据转换为numpy数组
+    #     self.w_p = np.array(data.w_p).reshape(-1, 3)
+    #     self.s_p = np.array(data.s_p).reshape(-1, 3)
+    #     self.si_q = np.array(data.si_q).reshape(-1, 2)
+    #     self.si_q_theta_Rho = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+    #     self.timestep = data.timestep
+    #     self.pts_indice = np.array(data.indices)
+        
+    #     if len(self.pts_indice) > 0:
+    #         # 打印接收到的PoseStamped消息
+    #         if self.pose_T is not None:
+    #             T0 = self.pose_T
+    #             self.pose = data.pose
+    #             T1 = pose_to_transform_matrix(self.pose)   
+
+    #             # Calculate the transition matrix from t0 to t1 using left multiplication
+    #             delt_T = T1 @ np.linalg.inv(T0)
                 
-                self.R = delt_T[:3, :3]
-                self.t = delt_T[:3, 3]
-                self.pose_T = T1
-                theta = self.si_q_theta_Rho[0][0]
-                if self.si_q_theta_Rho_prime is not None:
-                    theta_Rho, theta_Rho_prime = get_match_pairs(self.si_q_theta_Rho, self.pts_indice, self.si_q_theta_Rho_prime, self.pts_indice_prime)
-                    if len(theta_Rho): 
-                        determinant = compute_D(self.R, self.t, theta_Rho[0][0], theta_Rho_prime[0][0])
-                        data = f"D: {determinant}, R: {self.R.tolist()}, t: {self.t.tolist()}, theta_Rho: {theta_Rho.tolist()}, theta_Rho_prime: {theta_Rho_prime.tolist()}\n"
+    #             self.R = delt_T[:3, :3]
+    #             self.t = delt_T[:3, 3]
+    #             self.pose_T = T1
+    #             theta = self.si_q_theta_Rho[0][0]
+    #             if self.si_q_theta_Rho_prime is not None:
+    #                 theta_Rho, theta_Rho_prime = get_match_pairs(self.si_q_theta_Rho, self.pts_indice, self.si_q_theta_Rho_prime, self.pts_indice_prime)
+    #                 if len(theta_Rho): 
+    #                     determinant = compute_D(self.R, self.t, theta_Rho[0][0], theta_Rho_prime[0][0])
+    #                     data = f"D: {determinant}, R: {self.R.tolist()}, t: {self.t.tolist()}, theta_Rho: {theta_Rho.tolist()}, theta_Rho_prime: {theta_Rho_prime.tolist()}\n"
         
-                        if determinant > 0.01:
-                            with open('non_deg.txt', 'a') as file:
-                                file.write(data)
-                            rospy.loginfo("determinant:\n%s\n", determinant)
-                        else:
-                            if not np.allclose(self.R, np.eye(3) , atol=0.03): # rotation
-                                with open('deg_rot.txt', 'a') as file:
-                                    file.write(data)
-                                rospy.loginfo("deg_rot-determinant:\n%s\n", determinant)
+    #                     if determinant > 0.01:
+    #                         with open('non_deg.txt', 'a') as file:
+    #                             file.write(data)
+    #                         rospy.loginfo("determinant:\n%s\n", determinant)
+    #                     else:
+    #                         if not np.allclose(self.R, np.eye(3) , atol=0.03): # rotation
+    #                             with open('deg_rot.txt', 'a') as file:
+    #                                 file.write(data)
+    #                             rospy.loginfo("deg_rot-determinant:\n%s\n", determinant)
                             
-                            elif not np.allclose(self.t, np.zeros((3,)), atol=0.2):
-                                with open('deg_trans.txt', 'a') as file:
-                                    file.write(data)
-                                rospy.loginfo("deg_trans-determinant:\n%s\n", determinant)
+    #                         elif not np.allclose(self.t, np.zeros((3,)), atol=0.2):
+    #                             with open('deg_trans.txt', 'a') as file:
+    #                                 file.write(data)
+    #                             rospy.loginfo("deg_trans-determinant:\n%s\n", determinant)
                             
-            else:
-                self.pose = data.pose
-                self.pose_T = pose_to_transform_matrix(self.pose)
+    #         else:
+    #             self.pose = data.pose
+    #             self.pose_T = pose_to_transform_matrix(self.pose)
         
-        self.pts_indice_prime = self.pts_indice
-        self.si_q_theta_Rho_prime = self.si_q_theta_Rho 
+    #     self.pts_indice_prime = self.pts_indice
+    #     self.si_q_theta_Rho_prime = self.si_q_theta_Rho 
         
         # 处理数据或执行其他操作
         # print(f"Timestep: {self.timestep}")
