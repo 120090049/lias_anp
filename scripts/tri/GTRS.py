@@ -57,84 +57,90 @@ Pose0 =  np.array([[0.9831495919305808, -0.18280284430700852, 0.0, -1.6576626320
 Pose1 =  np.array([[0.9277975520443236, -0.37308404203417866, 0.0, 1.67979469674189], [0.37308404203417866, 0.9277975520443236, 0.0, -0.09749330968347869], [0.0, 0.0, 1.0, -0.08616022059694262], [0.0, 0.0, 0.0, 1.0]])
 
 
-theta = theta_Rho[0][0]  # 45 degrees
-theta_prime = theta_Rho_prime[0][0]  # 30 degrees
-R = theta_Rho[0][1]  # example value for R
-R_prime = theta_Rho_prime[0][1] # example value for R'
 
 
 T_matrix = Pose1 @ np.linalg.inv(Pose0)
 
-R_matrix = T_matrix[:3, :3]
-t = T_matrix[:3, 3]
-r1 = R_matrix[0, :]
-r2 = R_matrix[1, :]
-
-
-determinant = compute_D(R_matrix, t, theta_Rho[0][0], theta_Rho_prime[0][0])
-print("determiant: ", determinant)
 ##########################################################################
 
-a1 = np.array([-1, np.tan(theta), 0, 0])
-b1 = 0 
 
-a2 = np.tan(theta_prime) * r2 - r1
-a2 = np.hstack([a2, 0])
-b2 = t[0] - np.tan(theta_prime) * t[1]
+def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
 
-a3 = t.T @ R_matrix
-a3 = np.hstack([a3, 0])
-b3 = (R_prime**2 - R**2 - np.linalg.norm(t)**2) / 2
+    theta = theta_Rho[0][0]  
+    theta_prime = theta_Rho_prime[0][0]  
+    R = theta_Rho[0][1]  
+    R_prime = theta_Rho_prime[0][1] 
 
-a4 = np.array([0, 0, 0, 1])
-b4 = R**2
+    R_matrix = T_matrix[:3, :3]
+    t = T_matrix[:3, 3]
+    r1 = R_matrix[0, :]
+    r2 = R_matrix[1, :]
 
-# 将线性方程组写成矩阵形式 A @ P = B
-A = np.vstack([a1, a2, a3, a4])
-b = np.array([b1, b2, b3, b4])
 
-n = 3   # 变量维度
+    determinant = compute_D(R_matrix, t, theta_Rho[0][0], theta_Rho_prime[0][0])
+    print("determiant: ", determinant)
+    
+    
+    a1 = np.array([-1, np.tan(theta), 0, 0])
+    b1 = 0 
 
-# 定义D和v
-D = np.block([
-    [np.eye(n), np.zeros((n, 1))],
-    [np.zeros((1, n)), 0]
-])
-v = np.block([
-    [np.zeros((n, 1))],
-    [-0.5]
-])
+    a2 = np.tan(theta_prime) * r2 - r1
+    a2 = np.hstack([a2, 0])
+    b2 = t[0] - np.tan(theta_prime) * t[1]
 
-# 定义优化变量
-t_var = cp.Variable()
-u_var = cp.Variable()
+    a3 = t.T @ R_matrix
+    a3 = np.hstack([a3, 0])
+    b3 = (R_prime**2 - R**2 - np.linalg.norm(t)**2) / 2
 
-# 定义矩阵Q_m和q_m
-Q_m = A.T @ A / 2
-q_m = (A.T @ b / 2).reshape(-1,1)
+    a4 = np.array([0, 0, 0, 1])
+    b4 = R**2
 
-# 构建半定规划问题的约束
-constraints = [
-    cp.bmat([
-        [Q_m + u_var * D, q_m - u_var * v],
-        [(q_m - u_var * v).T, cp.reshape(t_var, (1, 1))]
-    ]) >> 0
-]
+    # 将线性方程组写成矩阵形式 A @ P = B
+    A = np.vstack([a1, a2, a3, a4])
+    b = np.array([b1, b2, b3, b4])
 
-# 定义目标函数
-objective = cp.Minimize(t_var)
+    n = 3   # 变量维度
 
-# 求解优化问题
-prob = cp.Problem(objective, constraints)
-result = prob.solve()
+    # 定义D和v
+    D = np.block([
+        [np.eye(n), np.zeros((n, 1))],
+        [np.zeros((1, n)), 0]
+    ])
+    v = np.block([
+        [np.zeros((n, 1))],
+        [-0.5]
+    ])
 
-# 打印结果
-# print("Optimal value of t:", t_var.value)
-# print("Optimal value of u:", u_var.value)
+    # 定义优化变量
+    t_var = cp.Variable()
+    u_var = cp.Variable()
 
-# 使用公式 (12) 计算估计值
-y_est = np.linalg.inv(Q_m + u_var.value * D) @ (q_m - u_var.value * v)
-print("Estimated y:", y_est)
-print(np.sum(y_est[:3] ** 2))
+    # 定义矩阵Q_m和q_m
+    Q_m = A.T @ A / 2
+    q_m = (A.T @ b / 2).reshape(-1,1)
 
-################################################################
+    # 构建半定规划问题的约束
+    constraints = [
+        cp.bmat([
+            [Q_m + u_var * D, q_m - u_var * v],
+            [(q_m - u_var * v).T, cp.reshape(t_var, (1, 1))]
+        ]) >> 0
+    ]
+
+    # 定义目标函数
+    objective = cp.Minimize(t_var)
+
+    # 求解优化问题
+    prob = cp.Problem(objective, constraints)
+    result = prob.solve()
+
+    # 打印结果
+    # print("Optimal value of t:", t_var.value)
+    # print("Optimal value of u:", u_var.value)
+
+    # 使用公式 (12) 计算估计值
+    y_est = np.linalg.inv(Q_m + u_var.value * D) @ (q_m - u_var.value * v)
+    print("Estimated y:", y_est)
+    print(np.sum(y_est[:3] ** 2))
+        
+GTRS(T_matrix, theta_Rho, theta_Rho_prime)

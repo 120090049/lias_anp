@@ -174,14 +174,14 @@ if __name__ == "__main__":
     R_SW = np.array([[-0.5798, 0.4836, -0.6557],
                     [-0.8135, -0.3883, 0.4329],
                     [-0.0453, 0.7844, 0.6186]])
-    t_S = np.array([6, 4, 7])
+    t_S = np.array([6, 4, 8])
 
     # 实例化数据生成器
     data_generator = SonarDataGenerator(P_W, R_SW, t_S, Var_Noise=0.1)
 
     # 生成数据
     P_S, P_SI, P_SI_Noise = data_generator.generate_data()
-
+    print(P_SI)
     # 实例化算法
     anp_algorithm = AnPAlgorithm()
 

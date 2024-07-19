@@ -4,6 +4,26 @@ import numpy as np
 from lias_anp.msg import SonarData  # 确保替换为你的包名
 from geometry_msgs.msg import PoseStamped
 from utils import pose_to_transform_matrix
+import csv
+
+T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
+T_z_min90 = T_z_90.T
+R_z_90 = T_z_90[:3, :3]
+
+def coordinate_transform(P0, P1, Pose0, Pose1):
+    def Transformation_matrix(Pose0, Pose1):
+        # T1 = T0 @ T
+        T_matrix = np.linalg.inv(Pose0) @ Pose1 
+        # x-axis oriented switched to y-axis oriented
+        T_matrix = T_z_90 @ T_matrix @ T_z_min90
+        # get transforamtion matrix
+        T_matrix = np.linalg.inv(T_matrix)
+        return T_matrix
+    P0 = (T_z_90 @ P0)[:3]
+    P1 = (T_z_90 @ P1)[:3]
+    T_matrix = Transformation_matrix(Pose0, Pose1)
+    return P0, P1, T_matrix
+
 
 def get_match_pairs(si_q_theta_Rho, pts_indice, si_q_theta_Rho_prime, pts_indice_prime):
     
@@ -109,26 +129,110 @@ class TriSim:
         self.t = None
     
 
-    def sonar_callback(self, data):
-        # 将消息数据转换为numpy数组
-        self.w_p = np.array(data.w_p).reshape(-1, 3)
-        self.s_p = np.array(data.s_p).reshape(-1, 3)
-        self.si_q = np.array(data.si_q).reshape(-1, 2)
-        self.si_q_theta_Rho = np.array(data.si_q_theta_Rho).reshape(-1, 2)
-        self.timestep = data.timestep
-        self.pts_indice = np.array(data.indices)
+    # Just for writing data
+    # def sonar_callback(self, data): 
+    #     # 将消息数据转换为numpy数组
+    #     self.w_p = np.array(data.w_p).reshape(-1, 3)
+    #     self.s_p = np.array(data.s_p).reshape(-1, 3)
+    #     self.si_q = np.array(data.si_q).reshape(-1, 2)
+    #     self.si_q_theta_Rho = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+    #     self.timestep = data.timestep
+    #     self.pts_indice = np.array(data.indices)
         
-        if len(self.pts_indice) > 0:
-            # 打印接收到的PoseStamped消息
+    #     if len(self.pts_indice) > 0:
+    #         # 打印接收到的PoseStamped消息
             
-            self.pose = data.pose
-            self.pose_T = pose_to_transform_matrix(self.pose)
-    
-            with open('record.txt', 'a') as file:
-                data = f"Pose: {self.pose_T.tolist()}; theta_Rho: {self.si_q_theta_Rho.tolist()}; s_p: {self.s_p.tolist()}; w_p: {self.w_p.tolist()}\n"
-                file.write(data)
+    #         self.pose = data.pose
+    #         self.pose_T = pose_to_transform_matrix(self.pose)
+    #         # print(self.si_q_theta_Rho[0] - [-np.arctan(self.s_p[0][1]/self.s_p[0][0]), np.sqrt( np.sum(np.array(self.s_p[0])**2 ) )])
 
-        
+    #         with open('record.txt', 'a') as file:
+    #             data = f"Pose: {self.pose_T.tolist()}; theta_Rho: {self.si_q_theta_Rho.tolist()}; s_p: {self.s_p.tolist()}; w_p: {self.w_p.tolist()}\n"
+    #             file.write(data)
+    
+    def sonar_callback(self, data):
+        if len(data.indices) > 0:
+            self.pose = data.pose
+            self.w_p = np.array(data.w_p).reshape(-1, 3)
+            self.s_p = np.array(data.s_p).reshape(-1, 3)
+            self.si_q = np.array(data.si_q).reshape(-1, 2)
+            self.si_q_theta_Rho = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+            self.timestep = data.timestep
+            self.pts_indice = np.array(data.indices)
+
+            # 写入文件
+            # 将数据写入CSV文件
+            with open("sonar_data.csv", 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([self.pose.position.x, self.pose.position.y, self.pose.position.z,
+                                    self.pose.orientation.x, self.pose.orientation.y, self.pose.orientation.z, self.pose.orientation.w,
+                                    self.w_p.tolist(), self.s_p.tolist(), self.si_q.tolist(), self.si_q_theta_Rho.tolist(),
+                                    self.timestep, self.pts_indice.tolist()])
+    # def sonar_callback(self, data):
+    
+    #     if len(self.pts_indice) > 0:
+            
+    #         if self.pose_T is not None:
+    #             Pose0 = self.pose_T
+    #             self.pose = data.pose
+    #             Pose1 = pose_to_transform_matrix(self.pose)   
+                
+    #             w_p0 = self.w_p
+    #             s_p0 = self.s_p
+    #             si_q0 = self.si_q
+    #             si_q_theta_Rho0 = self.si_q_theta_Rho
+    #             timestep0 = self.timestep
+    #             pts_indice0 = self.pts_indice
+                
+    #             self.w_p = np.array(data.w_p).reshape(-1, 3)
+    #             self.s_p = np.array(data.s_p).reshape(-1, 3)
+    #             self.si_q = np.array(data.si_q).reshape(-1, 2)
+    #             self.si_q_theta_Rho = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+    #             self.timestep = data.timestep
+    #             self.pts_indice = np.array(data.indices)
+                
+    #             w_p1 = self.w_p
+    #             s_p1 = self.s_p
+    #             si_q1 = self.si_q
+    #             si_q_theta_Rho1 = self.si_q_theta_Rho
+    #             timestep1 = self.timestep
+    #             pts_indice1 = self.pts_indice
+                
+    #             # Pose0 and Pose1 at the 1st frame
+    #             # s_p1     si_q_theta_Rho     Pose
+    #             theta_Rho, theta_Rho_prime = get_match_pairs(self.si_q_theta_Rho, self.pts_indice, self.si_q_theta_Rho_prime, self.pts_indice_prime)
+    #             if len(theta_Rho): 
+    #                 determinant = compute_D(self.R, self.t, theta_Rho[0][0], theta_Rho_prime[0][0])
+    #                 data = f"D: {determinant}, R: {self.R.tolist()}, t: {self.t.tolist()}, theta_Rho: {theta_Rho.tolist()}, theta_Rho_prime: {theta_Rho_prime.tolist()}\n"
+    
+    #                 if determinant > 0.01:
+    #                     with open('non_deg.txt', 'a') as file:
+    #                         file.write(data)
+    #                     rospy.loginfo("determinant:\n%s\n", determinant)
+    #                 else:
+    #                     if not np.allclose(self.R, np.eye(3) , atol=0.03): # rotation
+    #                         with open('deg_rot.txt', 'a') as file:
+    #                             file.write(data)
+    #                         rospy.loginfo("deg_rot-determinant:\n%s\n", determinant)
+                        
+    #                     elif not np.allclose(self.t, np.zeros((3,)), atol=0.2):
+    #                         with open('deg_trans.txt', 'a') as file:
+    #                             file.write(data)
+    #                         rospy.loginfo("deg_trans-determinant:\n%s\n", determinant)
+    #         else:
+    #             self.pose = data.pose
+    #             self.pose_T = pose_to_transform_matrix(self.pose)    
+
+    def main_process(self):        
+        rate = rospy.Rate(5)
+        while not rospy.is_shutdown():
+            rate.sleep()
+
+if __name__ == '__main__':
+    tri_sim = TriSim()
+    tri_sim.main_process()
+
+                
     # def sonar_callback(self, data):
     #     # 将消息数据转换为numpy数组
     #     self.w_p = np.array(data.w_p).reshape(-1, 3)
@@ -186,12 +290,3 @@ class TriSim:
         # print(f"s_p: {self.s_p}")
         # print(f"si_q: {self.si_q}")
         # print(f"si_q_theta_Rho: {self.si_q_theta_Rho}")
-
-    def main_process(self):        
-        rate = rospy.Rate(5)
-        while not rospy.is_shutdown():
-            rate.sleep()
-
-if __name__ == '__main__':
-    tri_sim = TriSim()
-    tri_sim.main_process()

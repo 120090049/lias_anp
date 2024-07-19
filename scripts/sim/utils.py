@@ -1,6 +1,5 @@
 import numpy as np
 import tf
-from geometry_msgs.msg import PoseStamped
 
 
 def quaternion_to_rotation_matrix(quaternion):

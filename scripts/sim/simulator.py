@@ -7,6 +7,8 @@ import random
 random.seed(2)
 import rospy
 from cv_bridge import CvBridge
+import sys
+
 
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped, Point, Quaternion, Twist
@@ -16,12 +18,13 @@ from std_msgs.msg import Header
 import tf
 
 from scipy.spatial.transform import Rotation as R
+from utils import pose_to_transform_matrix
 
 def quaternion_to_rotation_matrix(quaternion):
     """将四元数转换为旋转矩阵"""
     return tf.transformations.quaternion_matrix(quaternion)[:3, :3]
 
-def pose_to_transform_matrix(pose):
+def pose_to_transform_matrix_dict(pose):
     """将位姿转换为齐次变换矩阵"""
     position = pose['position']
     orientation = pose['orientation']
@@ -41,27 +44,27 @@ def pose_to_transform_matrix(pose):
     return transform_matrix
 
 class Anp_sim:
-    def __init__(self):
+    def __init__(self, manual_ctr=True):
         self.points_rviz = []
-        self.xmin = -5
+        self.xmin = 0
         self.xmax = 5
         self.ymin = -5
         self.ymax = 5
         self.zmin = -1
         self.zmax = 1
         
-        # for _ in range(100):
-        #     x = random.uniform(xmin, xmax)
-        #     y = random.uniform(ymin, ymax)
-        #     z = random.uniform(zmin, zmax)
-        #     self.points_rviz.append(Point(x, y, z))
+        for _ in range(100):
+            x = random.uniform(self.xmin, self.xmax)
+            y = random.uniform(self.ymin, self.ymax)
+            z = random.uniform(self.zmin, self.zmax)
+            self.points_rviz.append(Point(x, y, z))
        
-        self.points_rviz.append(Point(2, 0, 0))
+        # self.points_rviz.append(Point(2, 0, 0))
         self.points = np.array([[point.x, point.y, point.z] for point in self.points_rviz])
 
         self.sonar_image = None
         self.pose = {'position': { 'x': 0.0, 'y': 0.0, 'z': 0.0,}, 'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0,} }
-        self.pose_T = pose_to_transform_matrix(self.pose)
+        self.pose_T = pose_to_transform_matrix_dict(self.pose)
       
         self.estimated_pose = None
         
@@ -71,12 +74,14 @@ class Anp_sim:
 
         self.sonar_image_pub = rospy.Publisher('/sim/sonar_image', Image, queue_size=10)
         self.sonar_data_pub = rospy.Publisher('/sim/sonar_data_with_pose', SonarData, queue_size=10)
-        # self.pose_pub = rospy.Publisher('/sim/pose', PoseStamped, queue_size=10)
 
         self.sonar_marker_pub = rospy.Publisher('/rviz/sonar_view', Marker, queue_size=10)
         self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
         
-        self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.cmd_vel_callback)
+        if manual_ctr:
+            self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.cmd_vel_callback)
+        else:
+            self.sonar_pose_sub = rospy.Subscriber('/sonar_pose_publisher', PoseStamped, self.sonar_pose_callback)
         # self.traj_est_pub = rospy.Publisher("/trajectory_est", Path, queue_size=10)
         # self.traj_gt_pub = rospy.Publisher("/trajectory_gt", Path, queue_size=10)
 
@@ -121,12 +126,29 @@ class Anp_sim:
         # T_world_t[0] = np.clip(T_world_t[0], self.xmin, self.xmax)
         # T_world_t[1] = np.clip(T_world_t[1], self.ymin, self.ymax)
         # T_world_t[2] = np.clip(T_world_t[2], self.zmin, self.zmax)
-        print(T_world_t)
         # 将调整后的平移部分放回 T_world 矩阵中
         T_world[:3, 3] = T_world_t
         
         # Update the pose transformation matrix
         self.pose_T = T_world
+
+        # Extract the updated position and orientation from the transformation matrix
+        updated_translation = tf.transformations.translation_from_matrix(self.pose_T)
+        updated_orientation = tf.transformations.quaternion_from_matrix(self.pose_T)
+
+        # Update the pose dictionary
+        self.pose['position']['x'] = updated_translation[0]
+        self.pose['position']['y'] = updated_translation[1]
+        self.pose['position']['z'] = updated_translation[2]
+        self.pose['orientation']['x'] = updated_orientation[0]
+        self.pose['orientation']['y'] = updated_orientation[1]
+        self.pose['orientation']['z'] = updated_orientation[2]
+        self.pose['orientation']['w'] = updated_orientation[3]
+        
+    def sonar_pose_callback(self, msg):
+
+        # Create the translation vector from the linear velocities
+        self.pose_T = pose_to_transform_matrix(msg.pose)
 
         # Extract the updated position and orientation from the transformation matrix
         updated_translation = tf.transformations.translation_from_matrix(self.pose_T)
@@ -193,8 +215,9 @@ class Anp_sim:
 
         # Convert points to polar coordinates and map to image coordinates
         X, Y, Z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
-        theta = np.arctan2(Y, X)
+        theta = np.arctan(Y/X)
         Rho = np.sqrt(X**2 + Y**2 + Z**2)
+
         ps_x = Rho * np.sin(theta)
         ps_y = Rho * np.cos(theta)
         
@@ -217,6 +240,9 @@ class Anp_sim:
         self.s_p = points_in_sonar_frame
         self.si_q = np.array(si_q)
         self.si_q_theta_Rho = np.array(si_q_theta_Rho)
+        
+        # print(self.si_q_theta_Rho[0] - [-np.arctan(self.s_p[0][1]/self.s_p[0][0]), np.sqrt( np.sum(np.array(self.s_p[0])**2 ) )])
+        # print(np.sum(np.array(self.s_p[0]))**2)
         
         # Publish SonarData with pose
         sonar_data_msg = SonarData()
@@ -360,5 +386,10 @@ class Anp_sim:
     
 
 if __name__ == '__main__':
-    estimator = Anp_sim()
+    manual_ctr = True
+    if len(sys.argv) != 2 or sys.argv[1] not in ['-m', '-a']:
+        print("Usage: rosrun lias_anp simulator.py -m/-a (manual control by default)")
+    elif sys.argv[1] != '-m':
+        manual_ctr = False
+    estimator = Anp_sim(manual_ctr)
     estimator.main_process()
