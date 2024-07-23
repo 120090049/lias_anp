@@ -7,6 +7,7 @@ from tri.tri import ANRS, GTRS
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import sys
+import csv
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -113,10 +114,11 @@ if __name__ == "__main__":
     T1 = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1) @ T0
 
-    theta_Rho0 = data[0]['si_q_theta_Rho']
-    pts_indice0 = data[0]['pts_indice']
-    theta_Rho1 = data[1]['si_q_theta_Rho']
-    pts_indice1 = data[1]['pts_indice']
+    start_index = 0
+    theta_Rho0 = data[start_index]['si_q_theta_Rho']
+    pts_indice0 = data[start_index]['pts_indice']
+    theta_Rho1 = data[start_index+1]['si_q_theta_Rho']
+    pts_indice1 = data[start_index+1]['pts_indice']
     
     # Dictionary to store estimated points in world coordinate system
     P_dict = {}
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     estimated_poses_y = []
     estimated_poses_z = []
     # General idea is we have T0 and T1, and we want to get T2
-    for timestep, entry in enumerate(data[2:], start=2):
+    for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         sys.stdout.write(f'\rTimestep: {timestep}')
         sys.stdout.flush()
         # ANP
@@ -172,11 +174,16 @@ if __name__ == "__main__":
         
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
 
+        determinant_list = []
         for i in range(len(theta_Rho)):
-            # determinant = compute_D(T_matrix, theta=theta_Rho[timestep][0], theta_prime=theta_Rho_prime[timestep][0])
-            s_P = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            determinant = compute_D(T_matrix, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
+            determinant_list.append(determinant)
+            s_P = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            # s_P = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
             w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
             key = common_indices[i]
+            # if key not in P_dict:
+            #     P_dict[key] = w_P
             P_dict[key] = w_P
         
         theta_Rho1 = theta_Rho2
@@ -214,4 +221,15 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
-        plt.show()
+        plt.show(block=False)
+        if timestep % 15 == 0:
+            plt.pause(5)  # 暂停5秒
+        else:
+            plt.pause(0.1)  # 暂停5秒
+        plt.close()  # 关闭图表窗口
+
+        l2_norm = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+
+        with open("debug_file.csv", 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([timestep, l2_norm, determinant_list])
