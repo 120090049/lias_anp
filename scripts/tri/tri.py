@@ -138,7 +138,6 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     return pos
 
 # 定义梯度下降法进行优化
-# 定义梯度下降法进行优化
 def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-5):
     
     def project_to_2d(P):
@@ -173,11 +172,12 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
     ps = np.array([R * np.sin(theta), R * np.cos(theta)])
     ps_prime = np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
     
+    
     P = P_init
+    previous_error = float('inf')
     for i in range(max_iter):
         # 计算当前误差
         error = error_function(P, ps, ps_prime, T_matrix)
-        
         # 计算梯度
         grad = np.zeros_like(P)
         for j in range(len(P)):
@@ -186,16 +186,22 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
             grad[j] = (error_function(P_temp, ps, ps_prime, T_matrix) - error) / tol
         
         # 更新P
-        P_new = P + learning_rate * grad
+        if previous_error < error:
+            learning_rate /= 2
+        step = learning_rate * grad
+        P_new = P + step
         
         # 检查收敛
         if np.linalg.norm(P_new - P) < tol:
             break
         
         P = P_new
-        print(f"Iteration {i+1}, Error: {error}")
+        previous_error = error
+        # print(f"Iteration {i+1}, Error: {error}")
     
-    return P
+    if previous_error > 0.01:
+        return P, False
+    return P, True 
 
 if __name__ == "__main__":
 

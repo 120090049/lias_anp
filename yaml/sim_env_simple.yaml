@@ -1,0 +1,20 @@
+points_parameters:
+  xmin: 0
+  xmax: 5
+  ymin: -5
+  ymax: 5
+  zmin: -1
+  zmax: 1
+  pts_num: 100
+
+sonar_attribute:
+  fov_horizontal: 120
+  fov_vertical: 40
+
+sonar_image:
+  range_max: 5
+  img_width: 500
+  img_height: 500
+
+sonar_control_mode:
+  manual_control: false

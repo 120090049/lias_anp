@@ -20,6 +20,10 @@ import tf
 from scipy.spatial.transform import Rotation as R
 from utils import pose_to_transform_matrix
 
+import yaml
+import os
+import rospkg
+
 def quaternion_to_rotation_matrix(quaternion):
     """将四元数转换为旋转矩阵"""
     return tf.transformations.quaternion_matrix(quaternion)[:3, :3]
@@ -44,16 +48,25 @@ def pose_to_transform_matrix_dict(pose):
     return transform_matrix
 
 class Anp_sim:
-    def __init__(self, manual_ctr=True):
-        self.points_rviz = []
-        self.xmin = 0
-        self.xmax = 5
-        self.ymin = -5
-        self.ymax = 5
-        self.zmin = -1
-        self.zmax = 1
+    def __init__(self, yaml_file_path):
         
-        for _ in range(100):
+        with open(yaml_file_path, 'r') as file:
+            params = yaml.safe_load(file)
+            
+        points_params = params['points_parameters']
+        sonar_attr = params['sonar_attribute']
+        sonar_img = params['sonar_image']
+        sonar_ctrl_mode = params['sonar_control_mode']
+        
+        self.points_rviz = []
+        self.xmin = points_params['xmin']
+        self.xmax = points_params['xmax']
+        self.ymin = points_params['ymin']
+        self.ymax = points_params['ymax']
+        self.zmin = points_params['zmin']
+        self.zmax = points_params['zmax']
+        
+        for _ in range(points_params['pts_num']):
             x = random.uniform(self.xmin, self.xmax)
             y = random.uniform(self.ymin, self.ymax)
             z = random.uniform(self.zmin, self.zmax)
@@ -78,7 +91,7 @@ class Anp_sim:
         self.sonar_marker_pub = rospy.Publisher('/rviz/sonar_view', Marker, queue_size=10)
         self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
         
-        if manual_ctr:
+        if sonar_ctrl_mode['manual_control']:
             self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.cmd_vel_callback)
         else:
             self.sonar_pose_sub = rospy.Subscriber('/sonar_pose_publisher', PoseStamped, self.sonar_pose_callback)
@@ -87,11 +100,11 @@ class Anp_sim:
 
         # Sonar
         # Define the sonar's field of view as a fan shape with top and bottom faces
-        self.fov_horizontal = np.deg2rad(120)  # 90 degrees horizontal field of view
-        self.fov_vertical = np.deg2rad(40)  # 60 degrees vertical field of view
-        self.range_max = 5.0  # 5 meters range
+        self.fov_horizontal = np.deg2rad(sonar_attr['fov_horizontal'])  # 90 degrees horizontal field of view
+        self.fov_vertical = np.deg2rad(sonar_attr['fov_vertical'])  # 60 degrees vertical field of view
+        self.range_max = sonar_attr['range_max']  # 5 meters range
         # Sonar image
-        self.img_width, self.img_height = 500, 500
+        self.img_width, self.img_height = sonar_img['img_width'], sonar_img['img_height']
         self.s_p = None
         self.w_p = None
         self.si_q = None
@@ -386,10 +399,15 @@ class Anp_sim:
     
 
 if __name__ == '__main__':
-    manual_ctr = True
-    if len(sys.argv) != 2 or sys.argv[1] not in ['-m', '-a']:
-        print("Usage: rosrun lias_anp simulator.py -m/-a (manual control by default)")
-    elif sys.argv[1] != '-m':
-        manual_ctr = False
-    estimator = Anp_sim(manual_ctr)
+    rospack = rospkg.RosPack()
+    package_path = rospack.get_path('lias_anp')
+    yaml_file_path = os.path.join(package_path, 'yaml/sim_env.yaml')
+    # yaml_file_path = os.path.join(package_path, 'yaml/sim_env_simple.yaml')
+    
+    # manual_ctr = True
+    # if len(sys.argv) != 2 or sys.argv[1] not in ['-m', '-a']:
+    #     print("Usage: rosrun lias_anp simulator.py -m/-a (manual control by default)")
+    # elif sys.argv[1] != '-m':
+    #     manual_ctr = False
+    estimator = Anp_sim(yaml_file_path)
     estimator.main_process()

@@ -205,12 +205,13 @@ if __name__ == "__main__":
             determinant_list.append(determinant)
             s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
             # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-            s_P = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
-            w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
-            key = common_indices[i]
+            s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
+            if good_reconstruct:
+                w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
+                key = common_indices[i]
             # if key not in P_dict:
             #     P_dict[key] = w_P
-            P_dict[key] = w_P
+                P_dict[key] = w_P
             
             difference = np.linalg.norm( w_P - w_P_gt[i] )
             reconstrubtion_error_list.append(difference)
