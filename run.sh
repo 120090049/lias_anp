@@ -1,20 +1,8 @@
-# from package uuv_teleop
-python3 traj_generator.py 
-
-roslaunch lias_anp teleop_joy.launch
+roscore
 rosrun lias_anp simulator.py
-
+rosrun lias_anp traj_generator.py 
 rviz -d ./rviz/sim.rviz 
 
-
+# if you want to use manual mode 
+roslaunch lias_anp teleop_joy.launch
 roslaunch lias_anp teleop_keyboard.launch
-# /uuv/cmd_vel
-# linear: 
-#   x: 0.0
-#   y: 0.0
-#   z: 0.0
-# angular: 
-#   x: 0.0
-#   y: 0.0
-#   z: 0.0
-roslaunch package_name start_joystick.launch joy_id:=0
