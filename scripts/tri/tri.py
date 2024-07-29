@@ -137,6 +137,66 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     
     return pos
 
+# 定义梯度下降法进行优化
+# 定义梯度下降法进行优化
+def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-5):
+    
+    def project_to_2d(P):
+        X, Y, Z = P
+        theta = np.arctan2(X, Y)
+        d = np.sqrt(X**2 + Y**2 + Z**2)
+        x_s = d * np.sin(theta)
+        y_s = d * np.cos(theta)
+        return np.array([x_s, y_s])
+
+    # 定义误差函数
+    def error_function(P, ps, ps_prime, T_matrix):
+        R = T_matrix[:3, :3]
+        t = T_matrix[:3, 3]
+        # 投影点
+        ps_hat = project_to_2d(P)
+        P_prime = R @ P + t
+        ps_prime_hat = project_to_2d(P_prime)
+        
+        # 计算误差
+        error_ps = ps - ps_hat
+        error_ps_prime = ps_prime - ps_prime_hat
+        
+        # 计算加权误差
+        error = error_ps.T @ np.diag(error_ps) @ error_ps + error_ps_prime.T @ np.diag(error_ps_prime) @ error_ps_prime
+        return error
+    
+    theta = theta_Rho[0]
+    R = theta_Rho[1]
+    theta_prime = theta_Rho_prime[0]
+    R_prime = theta_Rho_prime[1]
+    ps = np.array([R * np.sin(theta), R * np.cos(theta)])
+    ps_prime = np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
+    
+    P = P_init
+    for i in range(max_iter):
+        # 计算当前误差
+        error = error_function(P, ps, ps_prime, T_matrix)
+        
+        # 计算梯度
+        grad = np.zeros_like(P)
+        for j in range(len(P)):
+            P_temp = P.copy()
+            P_temp[j] += tol
+            grad[j] = (error_function(P_temp, ps, ps_prime, T_matrix) - error) / tol
+        
+        # 更新P
+        P_new = P + learning_rate * grad
+        
+        # 检查收敛
+        if np.linalg.norm(P_new - P) < tol:
+            break
+        
+        P = P_new
+        print(f"Iteration {i+1}, Error: {error}")
+    
+    return P
+
 if __name__ == "__main__":
 
     {'Pose': [[0.9947831471329273, 0.10201220603589002, 0.0, -0.13595595336837749], [-0.10201220603589002, 0.9947831471329273, -0.0, -1.9524370759126866], [-0.0, 0.0, 1.0, -0.3570108264917502], [0.0, 0.0, 0.0, 1.0]], 
@@ -156,12 +216,14 @@ if __name__ == "__main__":
     P0, P1, T_matrix = coordinate_transform(P0, P1, Pose0, Pose1)
 
     ANRS_res = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
-    print("Calculated P using ANRS:", ANRS_res)
+    final_res = gradient_descent(ANRS_res, theta_Rho, theta_Rho_prime, T_matrix)
+    print("Calculated P using ANRS:", final_res)
     print("The Ground truth value: ", P0)
 
 
     # 调用CTOA_GTRS函数
     GTRS_res = GTRS(T_matrix, theta_Rho, theta_Rho_prime)
+    final_res = gradient_descent(GTRS_res, theta_Rho, theta_Rho_prime, T_matrix)
 
     # 显示结果
     print('Calculated P using GTRS:', GTRS_res)
