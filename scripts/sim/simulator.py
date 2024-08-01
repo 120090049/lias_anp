@@ -7,8 +7,9 @@ import random
 random.seed(2)
 import rospy
 from cv_bridge import CvBridge
-import sys
-
+from geometry_msgs.msg import PoseArray, Pose, Point, Quaternion
+from nav_msgs.msg import Path
+import copy
 
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped, Point, Quaternion, Twist
@@ -78,7 +79,9 @@ class Anp_sim:
         self.sonar_image = None
         self.pose = {'position': { 'x': 0.0, 'y': 0.0, 'z': 0.0,}, 'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0,} }
         self.pose_T = pose_to_transform_matrix_dict(self.pose)
-      
+        present_pose = copy.deepcopy(self.pose)
+        self.trajectory = [present_pose]
+        
         self.estimated_pose = None
         
         # visualize
@@ -90,13 +93,14 @@ class Anp_sim:
 
         self.sonar_marker_pub = rospy.Publisher('/rviz/sonar_view', Marker, queue_size=10)
         self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
+        self.traj_gt_pub = rospy.Publisher("/rviz/trajectory_gt", Path, queue_size=10)
         
         if sonar_ctrl_mode['manual_control']:
-            self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.cmd_vel_callback)
+            self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.remoter_callback)
         else:
-            self.sonar_pose_sub = rospy.Subscriber('/sonar_pose_publisher', PoseStamped, self.sonar_pose_callback)
+            self.sonar_pose_sub = rospy.Subscriber('/sonar_pose_publisher', PoseStamped, self.predetermined_traj_callback)
         # self.traj_est_pub = rospy.Publisher("/trajectory_est", Path, queue_size=10)
-        # self.traj_gt_pub = rospy.Publisher("/trajectory_gt", Path, queue_size=10)
+
 
         # Sonar
         # Define the sonar's field of view as a fan shape with top and bottom faces
@@ -114,7 +118,7 @@ class Anp_sim:
         
         self.__rviz_init()
     
-    def cmd_vel_callback(self, msg):
+    def remoter_callback(self, msg):
         dt = 1.0 / 100.0  # Assuming the loop runs at 10 Hz
 
         # Create the translation vector from the linear velocities
@@ -158,7 +162,11 @@ class Anp_sim:
         self.pose['orientation']['z'] = updated_orientation[2]
         self.pose['orientation']['w'] = updated_orientation[3]
         
-    def sonar_pose_callback(self, msg):
+        present_pose = copy.deepcopy(self.pose)
+        self.trajectory.append(present_pose)
+        # print("remoter_callback", len(self.trajectory))
+        
+    def predetermined_traj_callback(self, msg):
 
         # Create the translation vector from the linear velocities
         self.pose_T = pose_to_transform_matrix(msg.pose)
@@ -175,6 +183,10 @@ class Anp_sim:
         self.pose['orientation']['y'] = updated_orientation[1]
         self.pose['orientation']['z'] = updated_orientation[2]
         self.pose['orientation']['w'] = updated_orientation[3]
+        
+        present_pose = copy.deepcopy(self.pose)
+        self.trajectory.append(present_pose)
+        # print("predetermined_traj_callback", len(self.trajectory))
     
     def __points_in_fov(self):
         """
@@ -291,6 +303,7 @@ class Anp_sim:
     def __visualize(self):
         self.__publish_points()
         self.__publish_sonar_view()
+        self.__publish_traj_gt()
         return
     
     def __rviz_init(self):
@@ -396,6 +409,75 @@ class Anp_sim:
 
         self.marker_pub.publish(marker)
 
+    # def __publish_pose_est(self):
+    #     poses = self.poses['poses'][:self.index]
+        
+    #     pose_array_msg = PoseArray()
+    #     pose_array_msg.header.stamp = rospy.Time.now()
+    #     pose_array_msg.header.frame_id = "map"
+
+    #     for pose in poses:
+    #         ros_pose = Pose()
+    #         ros_pose.position = Point(
+    #             pose['position']['x'],
+    #             pose['position']['y'],
+    #             pose['position']['z']
+    #         )
+    #         ros_pose.orientation = Quaternion(
+    #             pose['orientation']['x'],
+    #             pose['orientation']['y'],
+    #             pose['orientation']['z'],
+    #             pose['orientation']['w']
+    #         )
+    #         pose_array_msg.poses.append(ros_pose)
+
+    #     self.pose_est_pub.publish(pose_array_msg)
+        
+    #     ################
+        
+    #     path_msg = Path()
+    #     path_msg.header.stamp = rospy.Time.now()
+    #     path_msg.header.frame_id = "map"
+
+    #     for pose in poses:
+    #         pose_stamped = PoseStamped()
+    #         pose_stamped.header.stamp = rospy.Time.now()
+    #         pose_stamped.header.frame_id = "map"
+    #         pose_stamped.pose.position.x = pose['position']['x']
+    #         pose_stamped.pose.position.y = pose['position']['y']
+    #         pose_stamped.pose.position.z = pose['position']['z']
+    #         pose_stamped.pose.orientation.x = pose['orientation']['x']
+    #         pose_stamped.pose.orientation.y = pose['orientation']['y']
+    #         pose_stamped.pose.orientation.z = pose['orientation']['z']
+    #         pose_stamped.pose.orientation.w = pose['orientation']['w']
+
+    #         path_msg.poses.append(pose_stamped)
+
+    #     self.traj_est_pub.publish(path_msg)
+    
+    def __publish_traj_gt(self):
+        path_msg = Path()
+        path_msg.header.stamp = rospy.Time.now()
+        path_msg.header.frame_id = "map"
+
+        current_time = rospy.Time.now()
+        for i, pose in enumerate(self.trajectory):
+            pose_stamped = PoseStamped()
+            # 使用递增的时间戳
+            pose_stamped.header.stamp = current_time + rospy.Duration(i * 0.1)  # 每个姿态相隔0.1秒
+            pose_stamped.header.frame_id = "map"
+            pose_stamped.pose.position.x = pose['position']['x']
+            pose_stamped.pose.position.y = pose['position']['y']
+            pose_stamped.pose.position.z = pose['position']['z']
+            pose_stamped.pose.orientation.x = pose['orientation']['x']
+            pose_stamped.pose.orientation.y = pose['orientation']['y']
+            pose_stamped.pose.orientation.z = pose['orientation']['z']
+            pose_stamped.pose.orientation.w = pose['orientation']['w']
+
+            path_msg.poses.append(pose_stamped)
+        self.traj_gt_pub.publish(path_msg)
+
+    
     
 
 if __name__ == '__main__':

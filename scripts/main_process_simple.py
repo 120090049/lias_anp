@@ -10,9 +10,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import sys
 import csv
 import os
-import copy
 
-DEBUG = True
+RECORD = False
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -120,24 +119,18 @@ if __name__ == "__main__":
     anp_algorithm = AnPAlgorithm()
     
     # initialize
-    init_T0 = pose_to_transform_matrix(data[0]['pose'])
-    init_T0 = coordinate_transform_Pose(init_T0)
-    T0 = init_T0
-    init_T1 = pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
-    init_T1 = coordinate_transform_Pose(init_T1)
-    T1 = init_T1
-    Tri_T1 = init_T1
-    Tri_T1_gt = init_T1
-        
+    T0 = pose_to_transform_matrix(data[0]['pose'])
+    T0 = coordinate_transform_Pose(T0)
+    T1 = pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
+    T1 = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1) @ T0
+    T1_gt = T1
     
     start_index = 0
     theta_Rho0 = data[start_index]['si_q_theta_Rho']
     pts_indice0 = data[start_index]['pts_indice']
     theta_Rho1 = data[start_index+1]['si_q_theta_Rho']
     pts_indice1 = data[start_index+1]['pts_indice']
-    Tri_theta_Rho1 = theta_Rho1
-    Tri_pts_indice1 = pts_indice1
     
     # Dictionary to store estimated points in world coordinate system
     P_dict = {}
@@ -184,71 +177,57 @@ if __name__ == "__main__":
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
         T2 = np.linalg.inv(T2)
-        calculated_T1 = copy.deepcopy(T1)
-        calculated_T2 = copy.deepcopy(T2)
-        T1 = T2
         
-        # END ANP
+        
         #####################################################
-        
         # TRI
+        T_matrix = np.linalg.inv(T2) @ T1
+        
         T2_gt = coordinate_transform_Pose(pose_to_transform_matrix(entry['pose']))
-        Tri_T2_gt = T2_gt
-        Tri_T_gt = np.linalg.inv(Tri_T2_gt) @ Tri_T1_gt
+        T_matrix_gt = np.linalg.inv(T2_gt) @ T1_gt
+        T1_gt = T2_gt
+        # print(T_matrix - T_matrix_gt)
+        # theta_Rho2 = entry['si_q_theta_Rho']
+        # pts_indice2 = entry['pts_indice']
+        
+        theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
 
-        Tri_theta_Rho2 = theta_Rho2
-        Tri_pts_indice2 = pts_indice2
-        theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(Tri_theta_Rho1, Tri_pts_indice1, Tri_theta_Rho2, Tri_pts_indice2)
-
-        ## Determinant evaluation
-        skip_reconstruction = False
+        # Just for double check
+        w_P_gt = entry['w_p']
+        w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
+        w_P_gt = w_P_gt[w_P_gt_indices] 
+        w_P_gt = coordinate_transform_pt( w_P_gt.T ).T
+        reconstrubtion_error_list = []
+        
         determinant_list = []
         for i in range(len(theta_Rho)):
-            determinant = compute_D(Tri_T_gt, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
+            determinant = compute_D(T_matrix_gt, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
             determinant_list.append(determinant)
-        determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
+            s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
+            if good_reconstruct:
+                w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
+                key = common_indices[i]
+                if key not in P_dict:
+                    P_dict[key] = w_P
+                # P_dict[key] = w_P
+            
+            difference = np.linalg.norm( w_P - w_P_gt[i] )
+            reconstrubtion_error_list.append(difference)
+            
+        theta_Rho1 = theta_Rho2
+        pts_indice1 = pts_indice2
+        # print(P_dict)
         
-        if determinant_evaluation < 0.02:
-            print("Determinant is tooooo small, skip")
-            skip_reconstruction = True
-        
-        
-        Tri_T2 = calculated_T2
-        T_matrix = np.linalg.inv(Tri_T2) @ Tri_T1
-        
-        # if not skip_reconstruction:
-        if True:
-            # Points ground truth
-            w_P_gt = entry['w_p']
-            w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
-            w_P_gt = w_P_gt[w_P_gt_indices] 
-            w_P_gt = coordinate_transform_pt( w_P_gt.T ).T
+        T1 = T2
 
-            reconstrubtion_error_list = []
-            for i in range(len(theta_Rho)):
-                s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
-                if good_reconstruct:
-                    w_P = ( Tri_T1 @ np.hstack([s_P, 1]) )[:3]
-                    key = common_indices[i]
-                    if key not in P_dict:
-                        P_dict[key] = w_P
-                    # P_dict[key] = w_P
-                    
-                    difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    reconstrubtion_error_list.append(difference)
-                
-            Tri_theta_Rho1 = Tri_theta_Rho2
-            Tri_pts_indice1 = Tri_pts_indice2
-            Tri_T1 = Tri_T2
-            Tri_T1_gt = Tri_T2_gt
-        # TRI END
-        ####################################################333
 
+        # print(timestep)
         T2_gt = pose_to_transform_matrix(entry['pose'])
         T2_gt = coordinate_transform_Pose(T2_gt)
-
+        # print()
+        # print(T2-T2_gt)
         # 提取x和y坐标（即矩阵的第1和第2列的第4个元素）
         real_poses_x.append(T2_gt[0, 3])
         real_poses_y.append(T2_gt[1, 3])
@@ -264,6 +243,7 @@ if __name__ == "__main__":
 
         ax.plot(real_poses_x, real_poses_y, real_poses_z, 'b-', label='Real Traj')
         ax.plot(estimated_poses_x, estimated_poses_y, estimated_poses_z, 'r--', label='Estimated Traj')
+
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
@@ -271,24 +251,23 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
+        
         pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
-        if not skip_reconstruction and len(reconstrubtion_error_list):
-            reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
-        else:
-            reconstrubtion_error_evaluation = 0
-        if not DEBUG:
+        
+        if RECORD:
             file_name = f"record{file_number + 1}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
+        
 
             with open("debug_file.csv", 'a', newline='') as file:
                 writer = csv.writer(file)
+                determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
+                reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
                 writer.writerow([timestep, pose_estimation_error, determinant_evaluation, reconstrubtion_error_evaluation])
                
         else:
-            print("\npose_estimation_error=",pose_estimation_error)
-            print("determinant_evaluation=",determinant_evaluation)
-            print("reconstrubtion_error_evaluation=",reconstrubtion_error_evaluation,"\n")
+            print(pose_estimation_error)
             plt.show(block=False)
             if timestep % 15 == 0:
                 plt.pause(1)  # 暂停5秒

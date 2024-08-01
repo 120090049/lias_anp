@@ -185,21 +185,20 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
             P_temp[j] += tol
             grad[j] = (error_function(P_temp, ps, ps_prime, T_matrix) - error) / tol
         
-        # 更新P
+        # if error increase, we need to take the half of step learning rate
         if previous_error < error:
             learning_rate /= 2
         step = learning_rate * grad
         P_new = P + step
         
+        P = P_new
+        previous_error = error
         # 检查收敛
         if np.linalg.norm(P_new - P) < tol:
             break
         
-        P = P_new
-        previous_error = error
         # print(f"Iteration {i+1}, Error: {error}")
-    
-    if previous_error > 0.01:
+    if previous_error > tol:
         return P, False
     return P, True 
 
