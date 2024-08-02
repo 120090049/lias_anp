@@ -19,7 +19,7 @@ from std_msgs.msg import Header
 import tf
 
 from scipy.spatial.transform import Rotation as R
-from utils import pose_to_transform_matrix
+
 
 import yaml
 import os
@@ -48,6 +48,27 @@ def pose_to_transform_matrix_dict(pose):
     
     return transform_matrix
 
+def pose_to_transform_matrix(pose):
+
+    """将位姿转换为齐次变换矩阵"""
+    position = pose.position
+    orientation = pose.orientation
+    
+    # 提取平移向量
+    translation = np.array([position.x, position.y, position.z])
+    
+    # 提取四元数并转换为旋转矩阵
+    quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+    rotation_matrix = quaternion_to_rotation_matrix(quaternion)
+    
+    # 构建齐次变换矩阵
+    transform_matrix = np.eye(4)
+    transform_matrix[:3, :3] = rotation_matrix
+    transform_matrix[:3, 3] = translation
+    
+    return transform_matrix
+
+
 class Anp_sim:
     def __init__(self, yaml_file_path):
         
@@ -67,11 +88,12 @@ class Anp_sim:
         self.zmin = points_params['zmin']
         self.zmax = points_params['zmax']
         
-        for _ in range(points_params['pts_num']):
-            x = random.uniform(self.xmin, self.xmax)
-            y = random.uniform(self.ymin, self.ymax)
-            z = random.uniform(self.zmin, self.zmax)
-            self.points_rviz.append(Point(x, y, z))
+        # for _ in range(points_params['pts_num']):
+        #     x = random.uniform(self.xmin, self.xmax)
+        #     y = random.uniform(self.ymin, self.ymax)
+        #     z = random.uniform(self.zmin, self.zmax)
+        #     self.points_rviz.append(Point(x, y, z))
+        self.points_rviz.append(Point(3, 0, 0))
        
         # self.points_rviz.append(Point(2, 0, 0))
         self.points = np.array([[point.x, point.y, point.z] for point in self.points_rviz])
@@ -95,12 +117,10 @@ class Anp_sim:
         self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
         self.traj_gt_pub = rospy.Publisher("/rviz/trajectory_gt", Path, queue_size=10)
         
-        if sonar_ctrl_mode == 0:
+        if sonar_ctrl_mode['manual_control']:
             self.cmd_vel_sub = rospy.Subscriber('/joy/cmd_vel', Twist, self.remoter_callback)
-        elif  sonar_ctrl_mode == 1:
-            self.sonar_pose_sub = rospy.Subscriber('/set_sonar_pose', PoseStamped, self.set_pose_callback)
-        elif  sonar_ctrl_mode == 2:
-            self.sonar_pose_sub = rospy.Subscriber('/set_sonar_pose', PoseStamped, self.set_pose_callback)
+        else:
+            self.sonar_pose_sub = rospy.Subscriber('/sonar_pose_publisher', PoseStamped, self.predetermined_traj_callback)
         # self.traj_est_pub = rospy.Publisher("/trajectory_est", Path, queue_size=10)
 
 
@@ -168,7 +188,7 @@ class Anp_sim:
         self.trajectory.append(present_pose)
         # print("remoter_callback", len(self.trajectory))
         
-    def set_pose_callback(self, msg):
+    def predetermined_traj_callback(self, msg):
 
         # Create the translation vector from the linear velocities
         self.pose_T = pose_to_transform_matrix(msg.pose)
@@ -188,8 +208,7 @@ class Anp_sim:
         
         present_pose = copy.deepcopy(self.pose)
         self.trajectory.append(present_pose)
-        print("set_pose_callback", len(self.trajectory))
-  
+        # print("predetermined_traj_callback", len(self.trajectory))
     
     def __points_in_fov(self):
         """

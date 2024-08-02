@@ -50,7 +50,7 @@ def generate_trajectory(t, a=2.0, b=2.0, c=0.5, rate=1):
 
 def main():
     rospy.init_node('sonar_pose_publisher')
-    pub = rospy.Publisher('/sonar_pose_publisher', PoseStamped, queue_size=10)
+    pub = rospy.Publisher('/set_sonar_pose', PoseStamped, queue_size=10)
     rate = rospy.Rate(10)  # 10 Hz
 
     t = 0.0
