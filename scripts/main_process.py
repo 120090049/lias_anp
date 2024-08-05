@@ -2,7 +2,7 @@
 from sonardatareader import SonarDataReader
 import numpy as np
 import transforms3d
-from anp.anp import AnPAlgorithm
+from scripts.anp.anp_alg import AnPAlgorithm
 from tri.tri import ANRS, GTRS, gradient_descent
 
 import matplotlib.pyplot as plt

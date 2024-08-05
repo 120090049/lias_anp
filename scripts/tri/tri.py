@@ -65,7 +65,7 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
     return P_tilde_prime
 
 def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
-
+ 
     # Extract components from T_matrix
     R_matrix = T_matrix[:3, :3]
     t = T_matrix[:3, 3]
@@ -128,7 +128,6 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
             lambda_l = lambda_temp
         else:
             lambda_u = lambda_temp
-
     y = np.linalg.solve(ATA_be + lambda_u * D, ATb_be - lambda_u * g)
     pos = y[:3]
     

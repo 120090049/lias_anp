@@ -67,13 +67,13 @@ class Anp_sim:
         self.zmin = points_params['zmin']
         self.zmax = points_params['zmax']
         
-        for _ in range(points_params['pts_num']):
-            x = random.uniform(self.xmin, self.xmax)
-            y = random.uniform(self.ymin, self.ymax)
-            z = random.uniform(self.zmin, self.zmax)
-            self.points_rviz.append(Point(x, y, z))
+        # for _ in range(points_params['pts_num']):
+        #     x = random.uniform(self.xmin, self.xmax)
+        #     y = random.uniform(self.ymin, self.ymax)
+        #     z = random.uniform(self.zmin, self.zmax)
+        #     self.points_rviz.append(Point(x, y, z))
        
-        # self.points_rviz.append(Point(2, 0, 0))
+        self.points_rviz.append(Point(2, 0, 0))
         self.points = np.array([[point.x, point.y, point.z] for point in self.points_rviz])
 
         self.sonar_image = None

@@ -8,9 +8,9 @@ points_parameters:
   pts_num: 200
 
 sonar_attribute:
-  fov_horizontal: 360
-  fov_vertical: 60
-  range_max: 6
+  fov_horizontal: 60
+  fov_vertical: 20
+  range_max: 5
 
 sonar_image:
   img_width: 500

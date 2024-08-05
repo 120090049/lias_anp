@@ -26,4 +26,4 @@ def compute_D(T_matrix, theta, theta_prime):
     
     determinant = - (r1 - np.tan(theta) * r2).T @ t_cross @ (ux - np.tan(theta_prime) * uy)
     
-    return determinant
+    return determinant 
