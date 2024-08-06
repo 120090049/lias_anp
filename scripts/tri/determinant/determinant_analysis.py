@@ -75,6 +75,10 @@ class Determinant_Analysis:
         self.initialized = True
         self.origin = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
         
+        print(self.si_q_theta_Rho_T0)
+        print(self.pts_indice_T0)
+        print(self.pose_T0)
+        
     def sonar_callback(self, data):
         if len(data.indices) > 0:
             if not self.initialized:
@@ -103,11 +107,15 @@ class Determinant_Analysis:
                     determinant = compute_D(T_matrix, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
                     print(determinant)
                     if determinant > 0.001:
+                        print("STUCK ANRS")
                         s_P_0 = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                         print(s_P_0)
                     else:
                         print("NONE")
+                    print("STUCK GTRS0")
+                    print(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                     s_P_1 = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                    print("STUCK GTRS1")
                     
                     print(s_P_1)
                 # print(present_position - self.origin)
