@@ -1,4 +1,10 @@
 #!/usr/bin/python3
+
+import sys, roslib, os
+project_root = roslib.packages.get_pkg_dir('lias_anp')
+root_dir = os.path.abspath(os.path.join(project_root, 'scripts'))
+sys.path.append(root_dir)
+
 import cv2
 import numpy as np
 # from tri import sonar_triangulation
@@ -19,34 +25,19 @@ from std_msgs.msg import Header
 import tf
 
 from scipy.spatial.transform import Rotation as R
-from utils import pose_to_transform_matrix
+from utils.pose2matrix import pose_to_transform_matrix, ros_pose_to_transform_matrix
 
 import yaml
 import os
 import rospkg
 
-def quaternion_to_rotation_matrix(quaternion):
-    """将四元数转换为旋转矩阵"""
-    return tf.transformations.quaternion_matrix(quaternion)[:3, :3]
 
-def pose_to_transform_matrix_dict(pose):
-    """将位姿转换为齐次变换矩阵"""
-    position = pose['position']
-    orientation = pose['orientation']
-    
-    # 提取平移向量
-    translation = np.array([position['x'], position['y'], position['z']])
-    
-    # 提取四元数并转换为旋转矩阵
-    quaternion = [orientation['x'], orientation['y'], orientation['z'], orientation['w']]
-    rotation_matrix = quaternion_to_rotation_matrix(quaternion)
-    
-    # 构建齐次变换矩阵
-    transform_matrix = np.eye(4)
-    transform_matrix[:3, :3] = rotation_matrix
-    transform_matrix[:3, 3] = translation
-    
-    return transform_matrix
+from utils.match_pairs import get_match_pairs
+from anp.anp_alg import AnPAlgorithm
+from utils.pose2matrix import pose_to_transform_matrix
+from utils.coordinate_system_transform import coordinate_transform_Pose
+from tri.tri import ANRS, GTRS
+
 
 class Anp_sim:
     def __init__(self, yaml_file_path):
@@ -67,18 +58,18 @@ class Anp_sim:
         self.zmin = points_params['zmin']
         self.zmax = points_params['zmax']
         
-        # for _ in range(points_params['pts_num']):
-        #     x = random.uniform(self.xmin, self.xmax)
-        #     y = random.uniform(self.ymin, self.ymax)
-        #     z = random.uniform(self.zmin, self.zmax)
-        #     self.points_rviz.append(Point(x, y, z))
-       
-        self.points_rviz.append(Point(2, 0, 0))
+        for _ in range(points_params['pts_num']):
+            x = random.uniform(self.xmin, self.xmax)
+            y = random.uniform(self.ymin, self.ymax)
+            z = random.uniform(self.zmin, self.zmax)
+            self.points_rviz.append(Point(x, y, z))
+        # self.points_rviz.append(Point(2, 0, 0))
+        
         self.points = np.array([[point.x, point.y, point.z] for point in self.points_rviz])
 
         self.sonar_image = None
         self.pose = {'position': { 'x': 0.0, 'y': 0.0, 'z': 0.0,}, 'orientation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0,} }
-        self.pose_T = pose_to_transform_matrix_dict(self.pose)
+        self.pose_T = ros_pose_to_transform_matrix(self.pose)
         present_pose = copy.deepcopy(self.pose)
         self.trajectory = [present_pose]
         
@@ -188,7 +179,6 @@ class Anp_sim:
         
         present_pose = copy.deepcopy(self.pose)
         self.trajectory.append(present_pose)
-        print("set_pose_callback", len(self.trajectory))
   
     
     def __points_in_fov(self):

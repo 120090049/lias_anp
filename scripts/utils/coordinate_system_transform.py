@@ -10,6 +10,7 @@ import numpy as np
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
 R_z_90 = T_z_90[:3, :3]
+R_z_min90 = T_z_min90[:3, :3]
 
 def coordinate_transform_T(T0, T1):
     # T1 = T0 @ T
@@ -31,3 +32,9 @@ def coordinate_transform(p0, p1, T0, T1):
     p1 = coordinate_transform_pt(p1)
     T_matrix = coordinate_transform_T(T0, T1)
     return p0, p1, T_matrix
+
+def coordinate_transform_Pose_back(Pose):
+    return (T_z_min90 @ Pose @ T_z_90)
+
+def coordinate_transform_pt_back(P):
+    return (R_z_min90 @ P)

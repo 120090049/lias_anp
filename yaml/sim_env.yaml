@@ -5,11 +5,11 @@ points_parameters:
   ymax: 5
   zmin: -1
   zmax: 1
-  pts_num: 200
+  pts_num: 500
 
 sonar_attribute:
-  fov_horizontal: 360
-  fov_vertical: 60
+  fov_horizontal: 60
+  fov_vertical: 20
   range_max: 6
 
 sonar_image:

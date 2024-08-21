@@ -21,7 +21,6 @@ import csv
 
 
 # This is the function implement in this package
-from determinant import compute_D
 from utils.match_pairs import get_match_pairs
 from anp.anp_alg import AnPAlgorithm
 from utils.pose2matrix import pose_to_transform_matrix
@@ -29,6 +28,7 @@ from utils.coordinate_system_transform import coordinate_transform_Pose
 from tri.tri import ANRS, GTRS
 import rospy
 
+import csv
 
 
 
@@ -64,20 +64,19 @@ class Determinant_Analysis:
     def initialize_first_frame(self, data):
         """ 初始化第一次回调内容 """
         # self.pose_T0 = pose_to_transform_matrix(data.pose)
-        self.pose_T0 = coordinate_transform_Pose(pose_to_transform_matrix(data.pose))
+        # self.pose_T0 = coordinate_transform_Pose(pose_to_transform_matrix(data.pose))
+        self.pose_T0 = np.diag([1,1,1,1])
         
         # self.w_p_T0 = np.array(data.w_p).reshape(-1, 3)
         # self.s_p_T0 = np.array(data.s_p).reshape(-1, 3)
         # self.si_q_T0 = np.array(data.si_q).reshape(-1, 2)
         # self.timestep_T0 = data.timestep
-        self.si_q_theta_Rho_T0 = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+        # self.si_q_theta_Rho_T0 = np.array(data.si_q_theta_Rho).reshape(-1, 2)
+        self.si_q_theta_Rho_T0 = np.array([[0,2]])
         self.pts_indice_T0 = np.array(data.indices)
         self.initialized = True
         self.origin = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
-        
-        print(self.si_q_theta_Rho_T0)
-        print(self.pts_indice_T0)
-        print(self.pose_T0)
+
         
     def sonar_callback(self, data):
         if len(data.indices) > 0:
@@ -101,41 +100,34 @@ class Determinant_Analysis:
                 present_position = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
               
                 for i in range(len(theta_Rho)):
-                    print(self.origin)
                     # print(theta_Rho[i][0])
                     # # print(theta_Rho_prime[i][0])
-                    determinant = compute_D(T_matrix, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
-                    print(determinant)
-                    if determinant > 0.001:
-                        print("STUCK ANRS")
-                        s_P_0 = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                        print(s_P_0)
-                    else:
-                        print("NONE")
-                    print("STUCK GTRS0")
-                    print(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                    s_P_1 = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                    print("STUCK GTRS1")
+                    # print(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                    s_P_0, determinant0 = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                    s_P_1, determinant1 = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])                    
+            
+                    P0 = np.array([2,0,0])
                     
-                    print(s_P_1)
-                # print(present_position - self.origin)
+                    if s_P_0 is not None:
+                        print("ANRS", np.sum(s_P_0-P0)**2)
+                    if s_P_1 is not None:
+                        print("GTRS", np.sum(s_P_1-P0)**2)
+                    self.writer.writerow([np.sum(s_P_0-P0)**2, determinant0, np.sum(s_P_1-P0)**2, determinant1])
                 print()
-            # 写入文件
-            # 将数据写入CSV文件
-            # with open("sonar_data.csv", 'a', newline='') as file:
-            #     writer = csv.writer(file)
-            #     writer.writerow([self.pose.position.x, self.pose.position.y, self.pose.position.z,
-            #                         self.pose.orientation.x, self.pose.orientation.y, self.pose.orientation.z, self.pose.orientation.w,
-            #                         self.w_p.tolist(), self.s_p.tolist(), self.si_q.tolist(), self.si_q_theta_Rho.tolist(),
-            #                         self.timestep, self.pts_indice.tolist()])
+          
    
     def main_process(self):        
-        rate = rospy.Rate(5)
-        while not rospy.is_shutdown():
-            rate.sleep()
+        # 打开一个文件用于写入数据
+        with open(root_dir+'/tri/determiant_error_correlation.csv', mode='a', newline='') as file:
+            self.writer = csv.writer(file)
+            # 写入表头
+            # self.writer.writerow(['s_P_0', 'determinant0', 's_P_1', 'determinant1'])
+
+            rate = rospy.Rate(30)
+            while not rospy.is_shutdown():
+                rate.sleep()
 
 # 确保你的脚本被执行时调用main_process方法
 if __name__ == '__main__':
-    print("WHHHAT")
     da = Determinant_Analysis()
     da.main_process()

@@ -47,6 +47,34 @@ def pose_to_transform_matrix(pose):
     
     return transform_matrix
 
+def compute_D(T_matrix, theta, theta_prime):
+    """
+    Compute the determinant D(A0; R, t) for given parameters.
+    """
+    R = T_matrix[:3, :3]
+    t = T_matrix[:3, 3]
+    
+    def skew_symmetric_matrix(t):
+        """
+        Create a skew-symmetric matrix for a vector t.
+        """
+        return np.array([
+            [0, -t[2], t[1]],
+            [t[2], 0, -t[0]],
+            [-t[1], t[0], 0]
+        ])
+    ux = np.array([1, 0, 0])
+    uy = np.array([0, 1, 0])
+    
+    r1 = R[0, :]
+    r2 = R[1, :]
+        
+    t_cross = skew_symmetric_matrix(t)
+    
+    determinant = - (r1 - np.tan(theta) * r2).T @ t_cross @ (ux - np.tan(theta_prime) * uy)
+    
+    return determinant
+
 def get_match_pairs(si_q_theta_Rho, pts_indice, si_q_theta_Rho_prime, pts_indice_prime):
     
     # 找到共同的索引
@@ -88,7 +116,6 @@ def coordinate_transform(p0, p1, T0, T1):
     # scripts/record/sonar_data/sonar_data_simple.csv
     
 def main():
-    # reader = SonarDataReader(filepath = root_dir + "/record/sonar_data/sonar_data_tricky.csv")
     reader = SonarDataReader(filepath = root_dir + "/record/sonar_data/sonar_data_simple.csv")
     reader.read_data()
     data = reader.get_data()
@@ -126,13 +153,11 @@ def main():
     P_dict = {}
     theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
     for i in range(len(theta_Rho)):
-        s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        if s_P_init is not None:
-            s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
-            if good_reconstruct:
-                w_P = ( T0 @ np.hstack([s_P, 1]) )[:3]
-                key = common_indices[i]
-                P_dict[key] = w_P
+        s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+        if s_P is not None:
+            w_P = ( T0 @ np.hstack([s_P, 1]) )[:3]
+            key = common_indices[i]
+            P_dict[key] = w_P
     num_pts_initialized = len(P_dict)
     if num_pts_initialized < 10:
         print("Fail to initialize, only %d points are initialized" % num_pts_initialized)
@@ -189,37 +214,50 @@ def main():
         Tri_pts_indice2 = pts_indice2
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(Tri_theta_Rho1, Tri_pts_indice1, Tri_theta_Rho2, Tri_pts_indice2)
 
-     
+        ## Determinant evaluation
+        skip_reconstruction = False
+        determinant_list = []
+        for i in range(len(theta_Rho)):
+            determinant_list.append(determinant)
+        determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
+        
+        if determinant_evaluation < 0.02:
+            print("Determinant is tooooo small, skip")
+            skip_reconstruction = True
+        
+        
         Tri_T2 = calculated_T2
         T_matrix = np.linalg.inv(Tri_T2) @ Tri_T1
         
+        # if not skip_reconstruction:
+        if True:
+            # Points ground truth
+            w_P_gt = entry['w_p']
+            w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
+            w_P_gt = w_P_gt[w_P_gt_indices] 
+            w_P_gt = coordinate_transform_pt( w_P_gt.T ).T
 
-        # Points ground truth
-        w_P_gt = entry['w_p']
-        w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
-        w_P_gt = w_P_gt[w_P_gt_indices] 
-        w_P_gt = coordinate_transform_pt( w_P_gt.T ).T
-
-        reconstrubtion_error_list = []
-        for i in range(len(theta_Rho)):
-            s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-            # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-            if s_P_init is not None:
-                s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
-                if good_reconstruct:
-                    w_P = ( Tri_T1 @ np.hstack([s_P, 1]) )[:3]
-                    key = common_indices[i]
-                    if key not in P_dict:
-                        P_dict[key] = w_P
-                # P_dict[key] = w_P
+            reconstrubtion_error_list = []
+            for i in range(len(theta_Rho)):
+                s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                if s_P_init is not None:
+                    s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
+                    
+                    if good_reconstruct:
+                        w_P = ( Tri_T1 @ np.hstack([s_P, 1]) )[:3]
+                        key = common_indices[i]
+                        if key not in P_dict:
+                            P_dict[key] = w_P
+                    # P_dict[key] = w_P
+                    
+                    difference = np.linalg.norm( w_P - w_P_gt[i] )
+                    reconstrubtion_error_list.append(difference)
                 
-                difference = np.linalg.norm( w_P - w_P_gt[i] )
-                reconstrubtion_error_list.append(difference)
-            
-        Tri_theta_Rho1 = Tri_theta_Rho2
-        Tri_pts_indice1 = Tri_pts_indice2
-        Tri_T1 = Tri_T2
-        Tri_T1_gt = Tri_T2_gt
+            Tri_theta_Rho1 = Tri_theta_Rho2
+            Tri_pts_indice1 = Tri_pts_indice2
+            Tri_T1 = Tri_T2
+            Tri_T1_gt = Tri_T2_gt
         # TRI END
         ####################################################333
 
@@ -249,7 +287,7 @@ def main():
         ax.grid(True)
 
         pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
-        if len(reconstrubtion_error_list):
+        if not skip_reconstruction and len(reconstrubtion_error_list):
             reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
         else:
             reconstrubtion_error_evaluation = 0
@@ -260,16 +298,17 @@ def main():
 
             with open("debug_file.csv", 'a', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow([timestep, pose_estimation_error, reconstrubtion_error_evaluation])
+                writer.writerow([timestep, pose_estimation_error, determinant_evaluation, reconstrubtion_error_evaluation])
                
         else:
             print("\npose_estimation_error=",pose_estimation_error)
+            print("determinant_evaluation=",determinant_evaluation)
             print("reconstrubtion_error_evaluation=",reconstrubtion_error_evaluation,"\n")
             plt.show(block=False)
             if timestep % 15 == 0:
                 plt.pause(1)  # 暂停5秒
             else:
-                plt.pause(0.01)
+                plt.pause(1)
             plt.close()  # 关闭图表窗口
             
 

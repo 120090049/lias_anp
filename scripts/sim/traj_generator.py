@@ -14,35 +14,29 @@ def generate_trajectory(t, a=1.0, b=1.0, c=0.5, rate=1):
     :return: (x, y, z, roll, pitch, yaw)
     """
     
+    # ## Degenerate Case a
+    # x = 0
+    # y = 0
+    # z = c * rate * np.cos(rate * t)
+    # pitch = 0
+    # roll = 0
+    # yaw = rate * t
+    
+    # # Degenerate Case b
     # x = a * np.sin(rate * t)
-    # y = b * np.sin(rate * t) * np.cos(rate * t)
-    x = 0
-    y = 0
-    z = c * rate * np.cos(rate * t)
-
-    x_tangent = a * rate * np.cos(rate * t)
-    y_tangent = b * rate * np.cos(2 * rate * t)
-    z_tangent = c * rate * np.cos(rate * t)
-    
-    tangent = np.array([x_tangent, y_tangent, z_tangent])
-    tangent = np.array([1, 0, 0])
-
-    # 计算单位切线向量
-    T_x, T_y, T_z = tangent
-    yaw = np.arctan2(T_y, T_x)
-    pitch = 0
-    roll = 0
-    yaw = rate * t
+    # y = b * np.cos(rate * t)
+    # z = 0
+    # pitch = 0
+    # roll = 0
+    # yaw = rate * t
+    x = a * np.sin(rate * t)-1
+    y = b * np.sin(rate * t) * np.cos(rate * t)
+    z = 0.5 * np.sin(rate * t)
+    roll = 0.2 * np.sin(rate * t)
+    pitch = 0.2 * np.cos(rate * t)
+    yaw = 0.2 * np.sin(rate * t)
     return x, y, z, roll, pitch, yaw
-
-#  x = a * np.sin(rate * t)
-#     y = b * np.sin(rate * t) * np.cos(rate * t)
-#     z = c * np.sin(rate * t)
-#     x_tangent = a * rate * np.cos(rate * t)
-#     y_tangent = b * rate * np.cos(2 * rate * t)
-#     z_tangent = c * rate * np.cos(rate * t)
     
-#     tangent = np.array([x_tangent, y_tangent, z_tangent])
 
 #     # 计算单位切线向量
 #     T_x, T_y, T_z = tangent

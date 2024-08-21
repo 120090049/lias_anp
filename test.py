@@ -1,41 +1,8 @@
 #!/usr/bin/python3
 
 import numpy as np
-import cvxpy as cp
 from scipy.linalg import eig
-
-import sys, roslib, os
-project_root = roslib.packages.get_pkg_dir('lias_anp')
-root_dir = os.path.abspath(os.path.join(project_root, 'scripts'))
-sys.path.append(root_dir)
-
-DETERMINANT_THRESHOLD = 0.008
-DETERMINANT_THRESHOLD = 0.005
-
-T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
-T_z_min90 = T_z_90.T
-R_z_90 = T_z_90[:3, :3]
-
-def coordinate_transform_T(Pose0, Pose1):
-    # T1 = T0 @ T
-    T_matrix = np.linalg.inv(Pose0) @ Pose1 
-    # x-axis oriented switched to y-axis oriented
-    T_matrix = T_z_90 @ T_matrix @ T_z_min90
-    # get transforamtion matrix
-    T_matrix = np.linalg.inv(T_matrix)
-    return T_matrix
-
-def coordinate_transform_Pose(Pose):
-    return (T_z_90 @ Pose)
-
-def coordinate_transform_pt(P):
-    return (R_z_90 @ P)
-
-def coordinate_transform(P0, P1, Pose0, Pose1):
-    P0 = coordinate_transform_pt(P0)
-    P1 = coordinate_transform_pt(P1)
-    T_matrix = coordinate_transform_T(Pose0, Pose1)
-    return P0, P1, T_matrix
+import cvxpy as cp
 
 def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
 
@@ -63,7 +30,7 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
   
 
     determinant = np.linalg.det(A)
-    if abs(determinant) > DETERMINANT_THRESHOLD:
+    if abs(determinant) > 0.01:
         # ANRS
         P_o = np.linalg.inv(A) @ b
         norm_P_o = np.linalg.norm(P_o)
@@ -169,10 +136,9 @@ def GTRS_old(T_matrix, theta_Rho, theta_Rho_prime):
     
     return pos, determinant
 
-
 # CVX
-def GTRS_cvx(T_matrix, theta_Rho, theta_Rho_prime):
-    print("LALA")
+def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
+
     R_matrix = T_matrix[:3, :3]
     t = T_matrix[:3, 3]
 
@@ -233,15 +199,10 @@ def GTRS_cvx(T_matrix, theta_Rho, theta_Rho_prime):
         x = y[:3]
 
         # Print the results
-    else:
-        x = None
-    
-    return x, determinant
 
-def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
+        return x
 
-    """     return x, determinant    """
-        
+def Zeng_GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     R_matrix = T_matrix[:3, :3]
     t = T_matrix[:3, 3]
 
@@ -259,7 +220,7 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     a2 = np.tan(theta_prime) * r2 - r1
     a3 = t.T @ R_matrix
     determinant = np.linalg.det(np.vstack([a1, a2, a3]))
-    if abs(determinant) > DETERMINANT_THRESHOLD:
+    if abs(determinant) > 0.01:
         
         a1 = np.hstack([a1, 0])
         a2 = np.hstack([a2, 0])
@@ -306,7 +267,7 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
             y_u = compute_y(A, D, lambda_u, b, f)
 
         # Perform bisection method to refine lambda
-        while (lambda_u - lambda_l) > 1e-14:
+        while (lambda_u - lambda_l) > 0.00001:
             lambda_temp = (lambda_u + lambda_l) / 2
             y_temp = compute_y(A, D, lambda_temp, b, f)
             if (y_temp.T @ D @ y_temp + 2 * f.T @ y_temp).item() > 0:
@@ -319,13 +280,9 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
         x = y[:3]
 
         # Print the final results
-        # print("Final lambda value:", lambda_u)
-        # print("Final y:", y)
-        # print("Final x:", x)
-    else:
-        x = None
-    
-    return x, determinant
+        print("Final lambda value:", lambda_u)
+        print("Final y:", y)
+        print("Final x:", x)
 
 # 定义梯度下降法进行优化
 def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-5):
@@ -393,20 +350,7 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
     return P, True 
 
 if __name__ == "__main__":
-
-
-    # theta_Rho = np.array([-0.8427304625511169, 2.9157803058624268]) 
-    # theta_Rho_prime = np.array([0.10338770598173141, 1.4225620031356812]) 
-    # Pose0 =  np.array([[0.9947831471329273, 0.10201220603589002, 0.0, -0.13595595336837749], [-0.10201220603589002, 0.9947831471329273, -0.0, -1.9524370759126866], [-0.0, 0.0, 1.0, -0.3570108264917502], [0.0, 0.0, 0.0, 1.0]])
-    # Pose1 =  np.array([[0.8676190607260436, -0.49722948973774467, 0.0, 0.7461405519015483], [0.49722948973774467, 0.8676190607260436, 0.0, -0.5554558458716767], [0.0, 0.0, 1.0, -0.37813731018453933], [0.0, 0.0, 0.0, 1.0]])
-    # P0 = np.array([1.92564058303833, 2.1601450443267822, 0.3570108413696289])
-    # P1 = np.array([1.3640613555908203, -0.1415318101644516, 0.3781373202800751])
-
-    # P0, P1, T_matrix = coordinate_transform(P0, P1, Pose0, Pose1)
-
-    # Change yaw and z
     
-    # Normal
     P0 = np.array([2, 0, 0])
     T_matrix = np.array([
         [0.62866193, -0.77767871, 0.0, -0.20956837],
@@ -415,34 +359,21 @@ if __name__ == "__main__":
         [0.0, 0.0, 0.0, 1.0]
     ])
 
-    # 将向量转换为 np.array
     theta_Rho = np.array([0, 2])
     theta_Rho_prime = np.array([-0.66838837, 2.91649294])
-    # ANRS_res, deter = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
-    # final_res = gradient_descent(ANRS_res, theta_Rho, theta_Rho_prime, T_matrix)
-    # print("Calculated P using ANRS:", final_res)
-    # print("The Ground truth value: ", P0)
-
-
-    # # 调用CTOA_GTRS函数
-    # GTRS_res, deter = GTRS(T_matrix, theta_Rho, theta_Rho_prime)
-    # final_res = gradient_descent(GTRS_res, theta_Rho, theta_Rho_prime, T_matrix)
-
-    # # 显示结果
-    # print('Calculated P using GTRS:', GTRS_res)
-    # print("The Ground truth value: ", P0)
-    
-    # print(np.sum(ANRS_res-P0)**2)
-    # print(np.sum(GTRS_res-P0)**2)
-    s_P_0, determinant0 = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
+  
+    # s_P_0, determinant0 = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
     s_P_1, determinant1 = GTRS(T_matrix, theta_Rho, theta_Rho_prime)                    
-    print("ANRS")
-    print(determinant0, s_P_0)
-    print("GTRS")
+    # print("ANRS")
+    # print(determinant0, s_P_0)
+    # print("GTRS")
     print(determinant1, s_P_1)
-    P0 = np.array([2,0,0])
     
-    if s_P_0 is not None:
-        print(np.sum(s_P_0-P0)**2)
-    if s_P_1 is not None:
-        print(np.sum(s_P_1-P0)**2)
+    # if s_P_0 is not None:
+    #     print(np.sum(s_P_0-P0)**2)
+    # if s_P_1 is not None:
+    #     print(np.sum(s_P_1-P0)**2)
+        
+    s_P_2 = cvx(T_matrix, theta_Rho, theta_Rho_prime)   
+    print("SDP by cvx: ", s_P_2)                 
+    Zeng_GTRS(T_matrix, theta_Rho, theta_Rho_prime)   
