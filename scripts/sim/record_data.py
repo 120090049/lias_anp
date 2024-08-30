@@ -29,10 +29,18 @@ class SonarDataWriter:
         self.pose_T = None
         self.R = None
         self.t = None
+        
+        # We need to set the frequency
+        frequency = 5/7
+        self.last_callback_time = rospy.Time.now()
+        self.callback_interval = rospy.Duration(1/frequency)  # Throttle to 5 Hz
     
     
     def sonar_callback(self, data):
-        if len(data.indices) > 0:
+        current_time = rospy.Time.now()
+        if current_time - self.last_callback_time >= self.callback_interval:
+            self.last_callback_time = current_time
+        
             self.pose = data.pose
             self.w_p = np.array(data.w_p).reshape(-1, 3)
             self.s_p = np.array(data.s_p).reshape(-1, 3)

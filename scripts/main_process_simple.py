@@ -2,7 +2,7 @@
 from sonardatareader import SonarDataReader
 import numpy as np
 import transforms3d
-from scripts.anp.anp_alg import AnPAlgorithm
+from anp.anp_alg import AnPAlgorithm
 from tri.tri import ANRS, GTRS, gradient_descent
 
 import matplotlib.pyplot as plt
@@ -11,7 +11,7 @@ import sys
 import csv
 import os
 
-RECORD = False
+RECORD = True
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -105,7 +105,9 @@ def coordinate_transform(p0, p1, T0, T1):
 
 
 if __name__ == "__main__":
-    reader = SonarDataReader(filepath = "sonar_data_simple.csv")
+    # reader = SonarDataReader(filepath = "./record/sonar_data/sonar_data_simple.csv")
+    # reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/record/sonar_data/sonar_data_simple.csv")
+    reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/sim/sonar_data.csv")
     reader.read_data()
     data = reader.get_data()
     
@@ -137,7 +139,7 @@ if __name__ == "__main__":
     theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
     for i in range(len(theta_Rho)):
         # determinant = compute_D(T_matrix, theta=theta_Rho[timestep][0], theta_prime=theta_Rho_prime[timestep][0])
-        s_P = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+        s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         w_P = ( T0 @ np.hstack([s_P, 1]) )[:3]
         key = common_indices[i]
         P_dict[key] = w_P
@@ -152,8 +154,7 @@ if __name__ == "__main__":
     
     # General idea is we have T0 and T1, and we want to get T2
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
-        sys.stdout.write(f'\rTimestep: {timestep}')
-        sys.stdout.flush()
+       
         # ANP
         ## Get q_si2 and P_w for ANP
         theta_Rho2 = entry['si_q_theta_Rho']
@@ -203,14 +204,15 @@ if __name__ == "__main__":
         for i in range(len(theta_Rho)):
             determinant = compute_D(T_matrix_gt, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
             determinant_list.append(determinant)
-            s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-            # s_P_init = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-            s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
-            if good_reconstruct:
-                w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
-                key = common_indices[i]
-                if key not in P_dict:
-                    P_dict[key] = w_P
+            # s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            if determinant > 0.005:
+                s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
+                if good_reconstruct:
+                    w_P = ( T1 @ np.hstack([s_P, 1]) )[:3]
+                    key = common_indices[i]
+                    if key not in P_dict:
+                        P_dict[key] = w_P
                 # P_dict[key] = w_P
             
             difference = np.linalg.norm( w_P - w_P_gt[i] )
@@ -254,23 +256,25 @@ if __name__ == "__main__":
         
         pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
         
+        determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
+        reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
+        # sys.stdout.write(f'\rTimestep: {timestep}, pose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
+        # sys.stdout.flush()
+        print(f'\rTimestep: {timestep}, pose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
+        
         if RECORD:
             file_name = f"record{file_number + 1}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
         
-
             with open("debug_file.csv", 'a', newline='') as file:
                 writer = csv.writer(file)
-                determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
-                reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
-                writer.writerow([timestep, pose_estimation_error, determinant_evaluation, reconstrubtion_error_evaluation])
+                writer.writerow([timestep, pose_estimation_error, reconstrubtion_error_evaluation, determinant_evaluation])
                
         else:
-            print(pose_estimation_error)
             plt.show(block=False)
             if timestep % 15 == 0:
                 plt.pause(1)  # 暂停5秒
             else:
-                plt.pause(1)
+                plt.pause(0.1)
             plt.close()  # 关闭图表窗口

@@ -38,7 +38,18 @@ def coordinate_transform(P0, P1, Pose0, Pose1):
     return P0, P1, T_matrix
 
 def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
+    """_summary_
 
+    Args:
+        T_matrix (_type_): _description_
+        theta_Rho (_type_): _description_
+        theta_Rho_prime (_type_): _description_
+
+    Returns:
+        P_tilde_prime, 
+        determinant: DETERMINANT_THRESHOLD is recommended to set to 0.005 to filter out estimated point with high error
+        _type_: _description_
+    """
     # 将线性方程组写成矩阵形式 A @ P = B
     R_matrix = T_matrix[:3, :3]
     r1 = R_matrix[0, :]
@@ -63,18 +74,18 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
   
 
     determinant = np.linalg.det(A)
-    if abs(determinant) > DETERMINANT_THRESHOLD:
-        # ANRS
-        P_o = np.linalg.inv(A) @ b
-        norm_P_o = np.linalg.norm(P_o)
-        P_hat_o = P_o / norm_P_o
+    # if abs(determinant) > DETERMINANT_THRESHOLD:
+    # ANRS
+    P_o = np.linalg.inv(A) @ b
+    norm_P_o = np.linalg.norm(P_o)
+    P_hat_o = P_o / norm_P_o
 
-        A_tilde_prime = np.vstack([A, P_hat_o.T])
-        b_tilde_prime = np.append(b, R)
-        
-        P_tilde_prime = np.linalg.inv(A_tilde_prime.T @ A_tilde_prime) @ A_tilde_prime.T @ b_tilde_prime      
-    else:
-        P_tilde_prime = None
+    A_tilde_prime = np.vstack([A, P_hat_o.T])
+    b_tilde_prime = np.append(b, R)
+    
+    P_tilde_prime = np.linalg.inv(A_tilde_prime.T @ A_tilde_prime) @ A_tilde_prime.T @ b_tilde_prime      
+    # else:
+    #     P_tilde_prime = None
     return P_tilde_prime, determinant 
 
 def GTRS_old(T_matrix, theta_Rho, theta_Rho_prime):
