@@ -58,6 +58,10 @@ class Anp_sim:
         self.zmin = points_params['zmin']
         self.zmax = points_params['zmax']
         
+        sonar_noise_params = params['sonar_noise']
+        self.Rho_noise = sonar_noise_params['Rho_noise']
+        self.theta_noise = sonar_noise_params['theta_noise']
+        
         for _ in range(points_params['pts_num']):
             x = random.uniform(self.xmin, self.xmax)
             y = random.uniform(self.ymin, self.ymax)
@@ -232,23 +236,45 @@ class Anp_sim:
         cv2.ellipse(image, center, (radius, radius), 90, start_angle, end_angle, (0, 0, 0), -1)
 
         # Convert points to polar coordinates and map to image coordinates
+        ## Here is the ground truth
         X, Y, Z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
+        
         theta = np.arctan(Y/X)
         Rho = np.sqrt(X**2 + Y**2 + Z**2)
 
         ps_x = Rho * np.sin(theta)
         ps_y = Rho * np.cos(theta)
         
-        si_q = []
+        si_q_xy = []
         si_q_theta_Rho = []
+        si_q_xy_img_frame = []
         for x, y, theta_i, Rho_i in zip(ps_x, ps_y, theta, Rho):
             # Normalize to image coordinates
             x_img = int((x / self.range_max) * (self.img_width) + (self.img_width/2))
             y_img = int((y / self.range_max) * (self.img_height) )
-            # image[y_img, x_img] = (255, 255, 255)
-            cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
-            si_q.append(np.array([self.img_width/2-x_img, y_img]))
+            # cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
+            si_q_xy.append(np.array([-x, y]))
             si_q_theta_Rho.append(np.array([-theta_i, Rho_i]))
+            si_q_xy_img_frame.append(np.array([self.img_width/2-x_img, y_img]))
+        
+        ####################################
+        ### Now we can add noise
+        ####################################
+        theta_noise = np.arctan(np.tan(theta) + np.random.normal(0, self.theta_noise, size=Y.shape))
+        Rho_noise = np.sqrt(X**2 + Y**2 + Z**2) + np.random.normal(0, self.Rho_noise, size=Y.shape)
+        ps_x_noise = Rho_noise * np.sin(theta_noise)
+        ps_y_noise = Rho_noise * np.cos(theta_noise)
+        si_q_xy_noise = []
+        si_q_theta_Rho_noise = []
+        si_q_xy_img_frame_noise = []
+        for x, y, theta_i, Rho_i in zip(ps_x_noise, ps_y_noise, theta_noise, Rho_noise):
+            # Normalize to image coordinates
+            x_img = int((x / self.range_max) * (self.img_width) + (self.img_width/2))
+            y_img = int((y / self.range_max) * (self.img_height) )
+            cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
+            si_q_xy_noise.append(np.array([-x, y]))
+            si_q_theta_Rho_noise.append(np.array([-theta_i, Rho_i]))
+            si_q_xy_img_frame_noise.append(np.array([self.img_width/2-x_img, y_img]))
                 
         # Convert to ROS Image message and publish
         ros_image = self.bridge.cv2_to_imgmsg(image, encoding="bgr8")
@@ -256,8 +282,8 @@ class Anp_sim:
         
         self.w_p = points_in_fov
         self.s_p = points_in_sonar_frame
-        self.si_q = np.array(si_q)
-        self.si_q_theta_Rho = np.array(si_q_theta_Rho)
+        # self.si_q_xy = np.array(si_q_xy)
+        # self.si_q_theta_Rho = np.array(si_q_theta_Rho)
         
         # print(self.si_q_theta_Rho[0] - [-np.arctan(self.s_p[0][1]/self.s_p[0][0]), np.sqrt( np.sum(np.array(self.s_p[0])**2 ) )])
         # print(np.sum(np.array(self.s_p[0]))**2)
@@ -269,8 +295,16 @@ class Anp_sim:
         sonar_data_msg.indices = np.where(pts_in_fov_index)[0].tolist()
         sonar_data_msg.w_p = self.w_p.flatten()
         sonar_data_msg.s_p = self.s_p.flatten()
-        sonar_data_msg.si_q = self.si_q.flatten()
-        sonar_data_msg.si_q_theta_Rho = self.si_q_theta_Rho.flatten()
+        
+        sonar_data_msg.si_q_xy = np.array(si_q_xy).flatten()
+        sonar_data_msg.si_q_theta_Rho = np.array(si_q_theta_Rho).flatten()
+        sonar_data_msg.si_q_xy_img_frame = np.array(si_q_xy_img_frame).flatten()
+        
+        sonar_data_msg.si_q_xy_noise = np.array(si_q_xy_noise).flatten()
+        sonar_data_msg.si_q_theta_Rho_noise = np.array(si_q_theta_Rho_noise).flatten()
+        sonar_data_msg.si_q_xy_img_frame_noise = np.array(si_q_xy_img_frame_noise).flatten()
+    
+        
         sonar_data_msg.timestep = self.__timestep
         sonar_data_msg.pose.position.x = pose['position']['x']
         sonar_data_msg.pose.position.y = pose['position']['y']

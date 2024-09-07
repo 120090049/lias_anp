@@ -1,6 +1,15 @@
 import numpy as np
 import matlab.engine
 
+from pathlib import Path
+
+# 获取脚本的路径
+script_path = Path(__file__).resolve()
+
+# 获取脚本所在的目录
+script_dir = script_path.parent
+script_dir = str(script_dir) + "/"
+
 class SonarDataGenerator:
     def __init__(self, P_W, R_SW, t_S, Var_Noise=1.0):
         self.P_W = P_W
@@ -41,6 +50,8 @@ class AnPAlgorithm:
         self.t_s = None
         # 启动 MATLAB 引擎
         self.eng = matlab.engine.start_matlab()
+        self.eng.addpath(script_dir)
+        # self.eng.addpath('/home/clp/catkin_ws/src/lias_anp/scripts/anp/')
         print("Start matlab engine, ANP module successfully initialized!")
         
     def compute_t_R(self, P_SI, P_W):
@@ -49,11 +60,11 @@ class AnPAlgorithm:
         P_W_matlab = matlab.double(P_W.tolist())
 
         # 调用 MATLAB 中的 compute_t_R 函数
-        t_s, R_sw = self.eng.compute_t_R(P_SI_matlab, P_W_matlab, nargout=2)
+        R_sw, t_s = self.eng.compute_t_R(P_W_matlab, P_SI_matlab, 0, 0, nargout=2)
 
         # 将结果保存到类的属性中
-        self.t_s = np.array(t_s)
         self.R_sw = np.array(R_sw)
+        self.t_s = np.array(t_s)
 
         return self.t_s, self.R_sw
 
@@ -98,6 +109,7 @@ if __name__ == "__main__":
     anp_algorithm = AnPAlgorithm()
 
     # 计算 t_s 和 R_SW_Noise_my
+
     t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(P_SI_Noise, P_W)
 
     print("t_s_cal: \n", t_s_cal)

@@ -1,8 +1,8 @@
 #!/usr/bin/python3
-from sonardatareader import SonarDataReader
 import numpy as np
 import transforms3d
-from anp.anp_alg import AnPAlgorithm
+from anp.anp_alg_matlab import AnPAlgorithm
+# from anp.anp_alg import AnPAlgorithm
 from tri.tri import ANRS, GTRS, gradient_descent
 
 import matplotlib.pyplot as plt
@@ -10,6 +10,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import sys
 import csv
 import os
+
+
+# Append the root dir
+import sys, roslib, os
+lias_anp_dir = roslib.packages.get_pkg_dir('lias_anp')
+scripts_dir = os.path.abspath(os.path.join(lias_anp_dir, 'scripts'))
+sys.path.append(scripts_dir)
+from utils.sonar_data_processor import SonarDataReader
 
 RECORD = True
 
@@ -107,16 +115,19 @@ def coordinate_transform(p0, p1, T0, T1):
 if __name__ == "__main__":
     # reader = SonarDataReader(filepath = "./record/sonar_data/sonar_data_simple.csv")
     # reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/record/sonar_data/sonar_data_simple.csv")
-    reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/sim/sonar_data.csv")
+    # sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data_noisy.csv"
+    sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data.csv"
+    reord_dir = str(lias_anp_dir) + "/record/"
+    reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
     data = reader.get_data()
     
     try:
-        file_number = max([int(f[6:]) for f in os.listdir('.') if f.startswith('record') and f[6:].isdigit()])
+        file_number = max([int(f[6:]) for f in os.listdir(reord_dir) if f.startswith('record') and f[6:].isdigit()])
     except:
-        file_number = 1
-    new_folder = f"record{file_number + 1}"
-    os.makedirs(new_folder, exist_ok=True)
+        file_number = 0
+    record_folder = f"{reord_dir}/record{file_number + 1}"
+    os.makedirs(record_folder, exist_ok=True)
 
     anp_algorithm = AnPAlgorithm()
     
@@ -173,6 +184,20 @@ if __name__ == "__main__":
                 filtered_q_si_index.append(j)
         q_si2 = q_si2.T[filtered_q_si_index].T
         P_w = np.array(filtered_P_w_values).T
+        
+        """ 
+        q_si2 = array([[-34.36618688, -23.32028917,  30.57177859, -71.41472045,
+                    -62.90043075, -83.76403307, -54.00052687, -27.52152663,
+                    -35.79475131, -33.74689008, -67.50899297],
+                [-58.56975902, -45.97787148, -67.74868442,  15.60493729,
+                    5.05278281, -48.00136886, -18.06838512, -67.6407857 ,
+                    -65.13381544, -73.63627249, -21.05277972]])
+            
+        P_W = array([[30, 41, 21, 13, 23, 73, 35, 66, 72, 82, 15],
+                        [44, 26, 63, 34, 15, 22, 14, 33, 25, 23, 42],
+                        [35, 17, 16, 57, 54, 61, 42, 11, 13,  3, 47]])
+        """
+        
         t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
@@ -263,11 +288,11 @@ if __name__ == "__main__":
         print(f'\rTimestep: {timestep}, pose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
         
         if RECORD:
-            file_name = f"record{file_number + 1}/time_{timestep}.png"
+            file_name = f"{record_folder}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-        
-            with open("debug_file.csv", 'a', newline='') as file:
+            debug_file = record_folder + "/debug_file.csv"
+            with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow([timestep, pose_estimation_error, reconstrubtion_error_evaluation, determinant_evaluation])
                

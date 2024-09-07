@@ -16,6 +16,12 @@ sonar_image:
   img_width: 500
   img_height: 500
 
+sonar_noise:
+  Rho_noise: 0.0005
+  theta_noise: 0.0002
+  # Rho_noise: 0.005 
+  # theta_noise: 0.001
+
 # 0 manual joystick 
 # 1 manual rviz drag and keyboard
 # 2 predetermined trajectory 
