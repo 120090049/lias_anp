@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 import numpy as np
 import transforms3d
-from anp.anp_alg_matlab import AnPAlgorithm
-# from anp.anp_alg import AnPAlgorithm
+# from anp.anp_alg_matlab import AnPAlgorithm
+from anp.anp_alg import AnPAlgorithm
 from tri.tri import ANRS, GTRS, gradient_descent
 
 import matplotlib.pyplot as plt
@@ -116,10 +116,11 @@ if __name__ == "__main__":
     # reader = SonarDataReader(filepath = "./record/sonar_data/sonar_data_simple.csv")
     # reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/record/sonar_data/sonar_data_simple.csv")
     # sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data_noisy.csv"
-    sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data.csv"
+    # sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data.csv"
+    sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data_simple.csv"
     reord_dir = str(lias_anp_dir) + "/record/"
     reader = SonarDataReader(filepath = sonar_data_dir)
-    reader.read_data()
+    reader.read_data_old()
     data = reader.get_data()
     
     try:
@@ -144,16 +145,25 @@ if __name__ == "__main__":
     pts_indice0 = data[start_index]['pts_indice']
     theta_Rho1 = data[start_index+1]['si_q_theta_Rho']
     pts_indice1 = data[start_index+1]['pts_indice']
+    theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
+    
+    # Points ground truth
+    w_P_gt = data[start_index]['w_p']
+    w_P_gt_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
+    w_P_gt = w_P_gt[w_P_gt_indices] 
+    w_P_gt = coordinate_transform_pt( w_P_gt.T ).T
     
     # Dictionary to store estimated points in world coordinate system
     P_dict = {}
-    theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
+    reconstruction_error_distance_list = []
     for i in range(len(theta_Rho)):
-        # determinant = compute_D(T_matrix, theta=theta_Rho[timestep][0], theta_prime=theta_Rho_prime[timestep][0])
         s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         w_P = ( T0 @ np.hstack([s_P, 1]) )[:3]
         key = common_indices[i]
         P_dict[key] = w_P
+        reconstruction_error_distance = np.linalg.norm( w_P_gt[i] - w_P )
+        reconstruction_error_distance_list.append(reconstruction_error_distance)
+    # print(reconstruction_error_distance_list)
     
     # 初始化空列表用于存储轨迹
     real_poses_x = []
@@ -185,23 +195,11 @@ if __name__ == "__main__":
         q_si2 = q_si2.T[filtered_q_si_index].T
         P_w = np.array(filtered_P_w_values).T
         
-        """ 
-        q_si2 = array([[-34.36618688, -23.32028917,  30.57177859, -71.41472045,
-                    -62.90043075, -83.76403307, -54.00052687, -27.52152663,
-                    -35.79475131, -33.74689008, -67.50899297],
-                [-58.56975902, -45.97787148, -67.74868442,  15.60493729,
-                    5.05278281, -48.00136886, -18.06838512, -67.6407857 ,
-                    -65.13381544, -73.63627249, -21.05277972]])
-            
-        P_W = array([[30, 41, 21, 13, 23, 73, 35, 66, 72, 82, 15],
-                        [44, 26, 63, 34, 15, 22, 14, 33, 25, 23, 42],
-                        [35, 17, 16, 57, 54, 61, 42, 11, 13,  3, 47]])
-        """
-        
         t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
+        
         T2 = np.linalg.inv(T2)
         
         

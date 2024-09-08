@@ -11,7 +11,7 @@ classdef SonarDataGenerator
         function obj = SonarDataGenerator(P_W, R_SW, t_S, Var_Noise)
             % Constructor for SonarDataGenerator
             if nargin < 4
-                Var_Noise = 1.0;  % Default noise variance if not provided
+                Var_Noise = 0.1;  % Default noise variance if not provided
             end
             obj.P_W = P_W;
             obj.R_SW = R_SW;
@@ -34,6 +34,7 @@ classdef SonarDataGenerator
             % Loop through each point and calculate values
             for i = 1:obj.n
                 P_S(:, i) = obj.R_SW * obj.P_W(:, i) + obj.t_S;
+                % P_S(:, i) = obj.R_SW * (obj.P_W(:, i) - obj.t_S);
                 d(i) = norm(P_S(:, i));   % Distance calculation
                 cos_theta(i) = P_S(1, i) / sqrt(P_S(1, i)^2 + P_S(2, i)^2);
                 sin_theta(i) = P_S(2, i) / sqrt(P_S(1, i)^2 + P_S(2, i)^2);

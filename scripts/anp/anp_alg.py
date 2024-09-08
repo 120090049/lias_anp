@@ -1,37 +1,5 @@
 import numpy as np
 
-class SonarDataGenerator:
-    def __init__(self, P_W, R_SW, t_S, Var_Noise=1.0):
-        self.P_W = P_W
-        self.R_SW = R_SW
-        self.t_S = t_S
-        self.Var_Noise = Var_Noise
-        self.n = P_W.shape[1]
-
-    def generate_data(self):
-        P_S = np.zeros((3, self.n))
-        d = np.zeros(self.n)
-        cos_theta = np.zeros(self.n)
-        sin_theta = np.zeros(self.n)
-        tan_theta = np.zeros(self.n)
-        theta = np.zeros(self.n)
-        cos_phi = np.zeros(self.n)
-        P_SI = np.zeros((2, self.n))
-
-        for i in range(self.n):
-            P_S[:, i] = self.R_SW @ self.P_W[:, i] + self.t_S
-            d[i] = np.linalg.norm(P_S[:, i])
-            cos_theta[i] = P_S[0, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
-            sin_theta[i] = P_S[1, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
-            tan_theta[i] = sin_theta[i] / cos_theta[i]
-            theta[i] = np.arctan(tan_theta[i])
-            cos_phi[i] = np.sqrt(P_S[0, i]**2 + P_S[1, i]**2) / d[i]
-            P_SI[0, i] = d[i] * cos_theta[i]
-            P_SI[1, i] = d[i] * sin_theta[i]
-        
-        P_SI_Noise = P_SI + self.Var_Noise * np.random.randn(2, self.n)
-        return P_S, P_SI, P_SI_Noise
-
 class AnPAlgorithm:
     def __init__(self):
         # t_s, R_sw
@@ -54,12 +22,22 @@ class AnPAlgorithm:
 
     @staticmethod
     def rot2aa(R):
+        """
+        Converts a 3x3 rotation matrix to axis-angle representation.
+
+        Args:
+            R (numpy.ndarray): A 3x3 rotation matrix representing a rotation in 3D space.
+
+        Returns:
+            tuple: A tuple containing:
+                - k (numpy.ndarray): A 3D unit vector representing the axis of rotation. If no rotation is present (theta == 0), k is [0, 0, 0].
+                - theta (float): The rotation angle in radians, representing the amount of rotation around the axis k.
+        """
+        # 计算旋转角度 theta
         theta = np.arccos((np.trace(R) - 1) / 2)
-        if theta == 0:
+        if theta == 0: # 如果 theta 为零，意味着没有旋转，此时旋转轴向量 k 无意义
             k = np.array([0, 0, 0])
-        else:
-            # if theta < 0.01:
-            #     print('Warning: theta is too small, bad conditioned problem')
+        else: # 如果 theta 不为零，使用以下公式计算旋转轴 k
             k = np.array([(R[2, 1] - R[1, 2]),
                           (R[0, 2] - R[2, 0]),
                           (R[1, 0] - R[0, 1])]) / (2 * np.sin(theta))
@@ -163,36 +141,21 @@ class AnPAlgorithm:
         return t_s, R_sw
 
     def estimate_accuracy(self, R_sw_gt):
-        k, theta = self.rot2aa(R_sw_gt.T @ self.R_sw)
-        return k, theta
+        """
+        Evaluate the accuracy of the estimated rotation matrix by comparing it to the ground truth.
 
-if __name__ == "__main__":
-    # 初始化参数
-    P_W = np.array([[30, 41, 21, 13, 23, 73, 35, 66, 72, 82, 15],
-                    [44, 26, 63, 34, 15, 22, 14, 33, 25, 23, 42],
-                    [35, 17, 16, 57, 54, 61, 42, 11, 13, 3, 47]])
-    R_SW = np.array([[-0.5798, 0.4836, -0.6557],
-                    [-0.8135, -0.3883, 0.4329],
-                    [-0.0453, 0.7844, 0.6186]])
-    t_S = np.array([6, 4, 8])
+        This function computes the axis-angle difference between the estimated rotation matrix and 
+        the ground truth rotation matrix. It returns the axis of rotation and the angular deviation (the closer to 0, the better).
 
-    # 实例化数据生成器
-    data_generator = SonarDataGenerator(P_W, R_SW, t_S, Var_Noise=0.1)
+        Args:
+            R_sw_gt (numpy.ndarray): The ground truth rotation matrix, which is a 3x3 numpy array 
+                                    representing the true rotation.
 
-    # 生成数据
-    P_S, P_SI, P_SI_Noise = data_generator.generate_data()
-    print(P_SI)
-    # 实例化算法
-    anp_algorithm = AnPAlgorithm()
-
-    # 计算 t_s 和 R_SW_Noise_my
-    t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(P_SI_Noise, P_W)
-
-    print("t_s_cal: \n", t_s_cal)
-    print("R_sw_cal: \n", R_sw_cal)
-
-    # 估计精度
-    k, theta = anp_algorithm.estimate_accuracy(R_SW)
-
-    print("估计的精度 theta:", theta)
-        
+        Returns:
+            tuple: A tuple containing:
+                - axis (numpy.ndarray): A 3D unit vector representing the axis of rotation difference.
+                - theta (float): The angular deviation between the estimated and ground truth rotation 
+                                matrices, in radians.
+        """
+        axis, theta = self.rot2aa(R_sw_gt.T @ self.R_sw)
+        return axis, theta

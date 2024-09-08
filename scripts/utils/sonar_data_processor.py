@@ -109,6 +109,43 @@ class SonarDataReader:
                     'timestep': timestep,
                     'pts_indice': pts_indice
                 })
+                
+    def read_data_old(self):
+        with open(self.filepath, 'r') as file:
+            reader = csv.reader(file)
+            # headers = next(reader)  # 跳过表头
+
+            for row in reader:
+                pose_x = float(row[0])
+                pose_y = float(row[1])
+                pose_z = float(row[2])
+                pose_orient_x = float(row[3])
+                pose_orient_y = float(row[4])
+                pose_orient_z = float(row[5])
+                pose_orient_w = float(row[6])
+
+                w_p = np.array(eval(row[7]))
+                s_p = np.array(eval(row[8]))
+                si_q_xy = np.array(eval(row[9]))
+                si_q_theta_Rho = np.array(eval(row[10]))
+                # si_q_xy_img_frame = np.array(eval(row[11]))
+                timestep = int(row[11])
+                pts_indice = np.array(eval(row[12]))
+                # timestep = int(row[12])
+                # pts_indice = np.array(eval(row[13]))
+
+                self.data.append({
+                    'pose': {
+                        'position': {'x': pose_x, 'y': pose_y, 'z': pose_z},
+                        'orientation': {'x': pose_orient_x, 'y': pose_orient_y, 'z': pose_orient_z, 'w': pose_orient_w}
+                    },
+                    'w_p': w_p,
+                    's_p': s_p,
+                    'si_q_xy': si_q_xy,
+                    'si_q_theta_Rho': si_q_theta_Rho,
+                    'timestep': timestep,
+                    'pts_indice': pts_indice
+                })
 
     def get_data(self):
         return self.data
