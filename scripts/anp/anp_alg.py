@@ -34,7 +34,7 @@ class AnPAlgorithm:
                 - theta (float): The rotation angle in radians, representing the amount of rotation around the axis k.
         """
         # 计算旋转角度 theta
-        theta = np.arccos((np.trace(R) - 1) / 2)
+        theta = np.arccos(np.clip((np.trace(R) - 1) / 2, -1.0, 1.0))
         if theta == 0: # 如果 theta 为零，意味着没有旋转，此时旋转轴向量 k 无意义
             k = np.array([0, 0, 0])
         else: # 如果 theta 不为零，使用以下公式计算旋转轴 k
@@ -134,11 +134,11 @@ class AnPAlgorithm:
         else:
             raise ValueError("No valid R_sw found")
 
-        t_s = -R_sw @ t_W_Noise_my
+        # t_s = -R_sw @ t_W_Noise_my
         self.R_sw = R_sw
-        self.t_s = t_s
+        self.t_s = t_W_Noise_my
         
-        return t_s, R_sw
+        return t_W_Noise_my, R_sw
 
     def estimate_accuracy(self, R_sw_gt):
         """

@@ -1,6 +1,7 @@
 %  function [R_first,R_est_noise_new, t_first,t_est_noise_Gau] = final_algorithm(p_w, d_noise, Var_noise_d, Var_noise_theta, tan_theta_noise,cos_theta_noise)
-function [R_est_noise_new, t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d, Var_noise_theta)
+function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d, Var_noise_theta)
     % 先单独对t进行高斯牛顿迭代，再由整体函数对R和t进行高斯牛顿迭代
+
     Var_noise_d = double(Var_noise_d);
     Var_noise_theta = double(Var_noise_theta);
 
@@ -13,7 +14,7 @@ function [R_est_noise_new, t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d
     
     % 构造矩阵 A
     A_noise = [-2 * p_w', ones(num_points, 1)];
-
+    
     % 构造向量 b
     b_noise = (d_noise.^2 - vecnorm(p_w, 2, 1).^2 - Var_noise_d)';
     

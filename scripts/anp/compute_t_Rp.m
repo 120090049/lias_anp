@@ -1,7 +1,9 @@
 %  function [R_first,R_est_noise_new, t_first,t_est_noise_Gau] = final_algorithm(p_w, d_noise, Var_noise_d, Var_noise_theta, tan_theta_noise,cos_theta_noise)
-function [t_est_noise_Gau, R_est_noise_new] = compute_t_R_p(p_w, p_si, Var_noise_d, Var_noise_theta)
+function [R_est_noise_new, t_est_noise_Gau] = compute_t_Rp(p_w, p_si, Var_noise_d, Var_noise_theta)
     % 先单独对t进行高斯牛顿迭代，再由整体函数对R和t进行高斯牛顿迭代
- 
+    Var_noise_d = double(Var_noise_d);
+    Var_noise_theta = double(Var_noise_theta);
+
     tan_theta_noise = p_si(2,:)./p_si(1,:);
     theta_noise = atan(tan_theta_noise);
     cos_theta_noise = cos(theta_noise);
@@ -11,7 +13,7 @@ function [t_est_noise_Gau, R_est_noise_new] = compute_t_R_p(p_w, p_si, Var_noise
     
     % 构造矩阵 A
     A_noise = [-2 * p_w', ones(num_points, 1)];
-    
+
     % 构造向量 b
     b_noise = (d_noise.^2 - vecnorm(p_w, 2, 1).^2 - Var_noise_d)';
     
@@ -144,8 +146,8 @@ function [t_est_noise_Gau, R_est_noise_new] = compute_t_R_p(p_w, p_si, Var_noise
                  -1,0,0;
                  0,0,0];
         ukronR = kron((p_w(:,i)-t_est_noise_Gau)',R_est_noise_new);
-        g = e_2'*kron((p_w(:,i)-t_est_noise_Gau)',eye(3))*vec(R_est_noise_new);
-        h = e_1'*kron((p_w(:,i)-t_est_noise_Gau)',eye(3))*vec(R_est_noise_new);
+        g = e_2'*kron((p_w(:,i)-t_est_noise_Gau)',eye(3))*R_est_noise_new(:);
+        h = e_1'*kron((p_w(:,i)-t_est_noise_Gau)',eye(3))*R_est_noise_new(:);
 
         %雅可比矩阵
         J_R(2*i-1,1:3) = [0,0,0];

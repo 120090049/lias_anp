@@ -1,11 +1,12 @@
 import numpy as np
 
 class SonarDataGenerator:
-    def __init__(self, P_W, R_SW, t_S, Var_Noise=1.0):
+    def __init__(self, P_W, R_SW, t_S, theta_noise=0.0005, d_noise=0.0002):
         self.P_W = P_W
         self.R_SW = R_SW
         self.t_S = t_S
-        self.Var_Noise = Var_Noise
+        self.theta_noise = theta_noise
+        self.d_noise = d_noise
         self.n = P_W.shape[1]
 
     def generate_data(self):
@@ -17,19 +18,39 @@ class SonarDataGenerator:
         theta = np.zeros(self.n)
         cos_phi = np.zeros(self.n)
         P_SI = np.zeros((2, self.n))
+        P_SI_Noise = np.zeros((2, self.n))
 
         for i in range(self.n):
-            P_S[:, i] = self.R_SW @ self.P_W[:, i] + self.t_S
-            d[i] = np.linalg.norm(P_S[:, i])
-            cos_theta[i] = P_S[0, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
-            sin_theta[i] = P_S[1, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
-            tan_theta[i] = sin_theta[i] / cos_theta[i]
-            theta[i] = np.arctan(tan_theta[i])
-            cos_phi[i] = np.sqrt(P_S[0, i]**2 + P_S[1, i]**2) / d[i]
-            P_SI[0, i] = d[i] * cos_theta[i]
-            P_SI[1, i] = d[i] * sin_theta[i]
+            # P_S[:, i] = self.R_SW @ self.P_W[:, i] + self.t_S
+            P_S[:, i] = self.R_SW @ (self.P_W[:, i] - self.t_S)
+            d = np.linalg.norm(P_S[:, i])
+            tan_theta = P_S[1, i] / P_S[0, i]
+            theta = np.arctan(tan_theta)
+            P_SI[0, i] = d * np.cos(theta)
+            P_SI[1, i] = d * np.sin(theta)
+            
+            tan_theta_noise = tan_theta + np.random.normal(0, self.theta_noise)
+            theta_noise = np.arctan(tan_theta_noise)
+            d_noise = d + np.random.normal(0, self.d_noise)
+            P_SI_Noise[0, i] = d_noise * np.sin(theta_noise)
+            P_SI_Noise[1, i] = d_noise * np.cos(theta_noise)
+            #############################
+            #############################
+            
+            # cos_theta[i] = P_S[0, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
+            # sin_theta[i] = P_S[1, i] / np.sqrt(P_S[0, i]**2 + P_S[1, i]**2)
+            # tan_theta[i] = sin_theta[i] / cos_theta[i]
+            # theta[i] = np.arctan(tan_theta[i])
+            # cos_phi[i] = np.sqrt(P_S[0, i]**2 + P_S[1, i]**2) / d[i]
+            # P_SI[0, i] = d[i] * cos_theta[i]
+            # P_SI[1, i] = d[i] * sin_theta[i]
         
-        P_SI_Noise = P_SI + self.Var_Noise * np.random.randn(2, self.n)
+        # theta_noise = np.arctan(np.tan(theta) + np.random.normal(0, self.theta_noise, size=Y.shape))
+        # Rho_noise = np.sqrt(X**2 + Y**2 + Z**2) + np.random.normal(0, self.Rho_noise, size=Y.shape)
+        # ps_x_noise = Rho_noise * np.sin(theta_noise)
+        # ps_y_noise = Rho_noise * np.cos(theta_noise)
+        # P_SI_Noise = P_SI + self.Var_Noise * np.random.randn(2, self.n)
+        
         return P_S, P_SI, P_SI_Noise
 
 
