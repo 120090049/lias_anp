@@ -184,7 +184,6 @@ class Anp_sim:
         present_pose = copy.deepcopy(self.pose)
         self.trajectory.append(present_pose)
   
-    
     def __points_in_fov(self):
         """
         Determine which points are within the field of view (FOV) of a sonar.
@@ -239,11 +238,11 @@ class Anp_sim:
         ## Here is the ground truth
         X, Y, Z = points_in_sonar_frame[:, 0], points_in_sonar_frame[:, 1], points_in_sonar_frame[:, 2]
         
-        theta = np.arctan(Y/X)
         Rho = np.sqrt(X**2 + Y**2 + Z**2)
+        theta = np.arctan(Y/X)
 
-        ps_x = Rho * np.sin(theta)
-        ps_y = Rho * np.cos(theta)
+        ps_x = Rho * np.cos(theta)
+        ps_y = Rho * np.sin(theta)
         
         si_q_xy = []
         si_q_theta_Rho = []
@@ -253,17 +252,17 @@ class Anp_sim:
             x_img = int((x / self.range_max) * (self.img_width) + (self.img_width/2))
             y_img = int((y / self.range_max) * (self.img_height) )
             # cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
-            si_q_xy.append(np.array([-x, y]))
-            si_q_theta_Rho.append(np.array([-theta_i, Rho_i]))
+            si_q_xy.append(np.array([x, y]))
+            si_q_theta_Rho.append(np.array([theta_i, Rho_i]))
             si_q_xy_img_frame.append(np.array([self.img_width/2-x_img, y_img]))
         
         ####################################
         ### Now we can add noise
         ####################################
-        theta_noise = np.arctan(np.tan(theta) + np.random.normal(0, self.theta_noise, size=Y.shape))
-        Rho_noise = np.sqrt(X**2 + Y**2 + Z**2) + np.random.normal(0, self.Rho_noise, size=Y.shape)
-        ps_x_noise = Rho_noise * np.sin(theta_noise)
-        ps_y_noise = Rho_noise * np.cos(theta_noise)
+        theta_noise = np.arctan(Y/X + np.random.normal(0, self.theta_noise, size=Y.shape)) # arctan(tan(theta)+noise)
+        Rho_noise = np.sqrt(X**2 + Y**2 + Z**2) + np.random.normal(0, self.Rho_noise, size=Y.shape) 
+        ps_x_noise = Rho_noise * np.cos(theta_noise)
+        ps_y_noise = Rho_noise * np.sin(theta_noise)
         si_q_xy_noise = []
         si_q_theta_Rho_noise = []
         si_q_xy_img_frame_noise = []
@@ -272,8 +271,8 @@ class Anp_sim:
             x_img = int((x / self.range_max) * (self.img_width) + (self.img_width/2))
             y_img = int((y / self.range_max) * (self.img_height) )
             cv2.circle(image, (x_img, y_img), 3, (255, 255, 255), -1)
-            si_q_xy_noise.append(np.array([-x, y]))
-            si_q_theta_Rho_noise.append(np.array([-theta_i, Rho_i]))
+            si_q_xy_noise.append(np.array([x, y]))
+            si_q_theta_Rho_noise.append(np.array([theta_i, Rho_i]))
             si_q_xy_img_frame_noise.append(np.array([self.img_width/2-x_img, y_img]))
                 
         # Convert to ROS Image message and publish
@@ -435,52 +434,6 @@ class Anp_sim:
             marker.points.append(point)
 
         self.marker_pub.publish(marker)
-
-    # def __publish_pose_est(self):
-    #     poses = self.poses['poses'][:self.index]
-        
-    #     pose_array_msg = PoseArray()
-    #     pose_array_msg.header.stamp = rospy.Time.now()
-    #     pose_array_msg.header.frame_id = "map"
-
-    #     for pose in poses:
-    #         ros_pose = Pose()
-    #         ros_pose.position = Point(
-    #             pose['position']['x'],
-    #             pose['position']['y'],
-    #             pose['position']['z']
-    #         )
-    #         ros_pose.orientation = Quaternion(
-    #             pose['orientation']['x'],
-    #             pose['orientation']['y'],
-    #             pose['orientation']['z'],
-    #             pose['orientation']['w']
-    #         )
-    #         pose_array_msg.poses.append(ros_pose)
-
-    #     self.pose_est_pub.publish(pose_array_msg)
-        
-    #     ################
-        
-    #     path_msg = Path()
-    #     path_msg.header.stamp = rospy.Time.now()
-    #     path_msg.header.frame_id = "map"
-
-    #     for pose in poses:
-    #         pose_stamped = PoseStamped()
-    #         pose_stamped.header.stamp = rospy.Time.now()
-    #         pose_stamped.header.frame_id = "map"
-    #         pose_stamped.pose.position.x = pose['position']['x']
-    #         pose_stamped.pose.position.y = pose['position']['y']
-    #         pose_stamped.pose.position.z = pose['position']['z']
-    #         pose_stamped.pose.orientation.x = pose['orientation']['x']
-    #         pose_stamped.pose.orientation.y = pose['orientation']['y']
-    #         pose_stamped.pose.orientation.z = pose['orientation']['z']
-    #         pose_stamped.pose.orientation.w = pose['orientation']['w']
-
-    #         path_msg.poses.append(pose_stamped)
-
-    #     self.traj_est_pub.publish(path_msg)
     
     def __publish_traj_gt(self):
         path_msg = Path()

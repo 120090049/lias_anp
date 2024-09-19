@@ -57,8 +57,8 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
     t = T_matrix[:3, 3]
 
 
-    theta = theta_Rho[0]
-    theta_prime = theta_Rho_prime[0]
+    theta = -theta_Rho[0]
+    theta_prime = -theta_Rho_prime[0]
     R = theta_Rho[1]  # example value for R
     R_prime = theta_Rho_prime[1] # example value for R'
     

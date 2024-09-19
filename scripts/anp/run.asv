@@ -57,8 +57,8 @@ disp(R_sw_cal);
 tan_theta_noise = tan_theta + randn() * 0.0005;
 theta_noise = atan(tan_theta_noise);
 d_noise = d + randn() * 0.0002;
-P_SI_Noise(1, :) = d_noise * sin(theta_noise); % Matlab索引从1开始
-P_SI_Noise(2, :) = d_noise * cos(theta_noise);
+P_SI_Noise(1, :) = d_noise .* sin(theta_noise); % Matlab索引从1开始
+P_SI_Noise(2, :) = d_noise .* cos(theta_noise);
 % Call the compute_t_R function
 [ R_sw_cal,t_s_cal] = compute_t_R(P_W, P_SI_Noise,0,0);
 

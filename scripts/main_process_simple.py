@@ -117,10 +117,11 @@ if __name__ == "__main__":
     # reader = SonarDataReader(filepath = "/home/clp/catkin_ws/src/lias_anp/scripts/record/sonar_data/sonar_data_simple.csv")
     # sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data_noisy.csv"
     # sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data.csv"
-    sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data_simple.csv"
+    sonar_data_dir = str(lias_anp_dir) + "/data/sonar_data.csv"
     reord_dir = str(lias_anp_dir) + "/record/"
     reader = SonarDataReader(filepath = sonar_data_dir)
-    reader.read_data_old()
+    reader.read_data()
+    # reader.read_data_old()
     data = reader.get_data()
     
     try:
@@ -163,7 +164,7 @@ if __name__ == "__main__":
         P_dict[key] = w_P
         reconstruction_error_distance = np.linalg.norm( w_P_gt[i] - w_P )
         reconstruction_error_distance_list.append(reconstruction_error_distance)
-    # print(reconstruction_error_distance_list)
+    print(sum(reconstruction_error_distance_list)/len(reconstruction_error_distance_list))
     
     # 初始化空列表用于存储轨迹
     real_poses_x = []
@@ -197,10 +198,10 @@ if __name__ == "__main__":
         
         t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
-        T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
+        T2[:3, :3] = R_sw_cal.T  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
         
-        T2 = np.linalg.inv(T2)
+        # T2 = np.linalg.inv(T2)
         
         
         #####################################################
@@ -225,10 +226,9 @@ if __name__ == "__main__":
         
         determinant_list = []
         for i in range(len(theta_Rho)):
-            determinant = compute_D(T_matrix_gt, theta=theta_Rho[i][0], theta_prime=theta_Rho_prime[i][0])
-            determinant_list.append(determinant)
             # s_P_init = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
             s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+            determinant_list.append(determinant)
             if determinant > 0.005:
                 s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix)
                 if good_reconstruct:
@@ -281,7 +281,6 @@ if __name__ == "__main__":
         
         determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list)
         reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
-        # sys.stdout.write(f'\rTimestep: {timestep}, pose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
         # sys.stdout.flush()
         print(f'\rTimestep: {timestep}, pose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
         
