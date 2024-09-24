@@ -54,8 +54,8 @@ disp(t_s_cal);
 disp('R_sw_cal:');
 disp(R_sw_cal);
 
-
-[ R_sw_cal,t_s_cal] = Wang_app_algorithm_2(P_W, P_SI);
+t_s_true = -R_SW*t_S;
+[ R_sw_cal,t_s_cal] = Wang_app_algorithm_2(P_W, P_SI, t_s_true ,0);
 disp('t_s_cal:');
 disp(t_s_cal);
 disp('R_sw_cal:');
