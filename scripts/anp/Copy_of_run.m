@@ -43,36 +43,30 @@ P_SI(1,:) = d.*cos(theta_est);
 P_SI(2,:) = d.*sin(theta_est);
 
 [ R_sw_cal,t_s_cal] = compute_t_R(P_W, P_SI,0,0);
+
+
+% Display results
 disp('t_s_cal:');
 disp(t_s_cal);
+
 disp('R_sw_cal:');
 disp(R_sw_cal);
 
-[ R_sw_cal,t_s_cal] = Wang_nonapp_algorithm_2(P_W, P_SI);
+[ R_sw_cal,t_s_cal] = Wang_nonapp_algorithm_2(P_W, P_SI,0,0);
+
+
+% Noise data
+tan_theta_noise = tan_theta + randn() * 0.0005;
+theta_noise = atan(tan_theta_noise);
+d_noise = d + randn() * 0.0002;
+P_SI_Noise(1, :) = d_noise .* cos(theta_noise); % Matlab索引从1开始
+P_SI_Noise(2, :) = d_noise .* sin(theta_noise);
+% Call the compute_t_R function
+[ R_sw_cal,t_s_cal] = compute_t_R(P_W, P_SI_Noise,0,0);
+
+% Display results
 disp('t_s_cal:');
 disp(t_s_cal);
+
 disp('R_sw_cal:');
 disp(R_sw_cal);
-
-
-[ R_sw_cal,t_s_cal] = Wang_app_algorithm_2(P_W, P_SI);
-disp('t_s_cal:');
-disp(t_s_cal);
-disp('R_sw_cal:');
-disp(R_sw_cal);
-
-% % Noise data
-% tan_theta_noise = tan_theta + randn() * 0.0005;
-% theta_noise = atan(tan_theta_noise);
-% d_noise = d + randn() * 0.0002;
-% P_SI_Noise(1, :) = d_noise .* cos(theta_noise); % Matlab索引从1开始
-% P_SI_Noise(2, :) = d_noise .* sin(theta_noise);
-% % Call the compute_t_R function
-% [ R_sw_cal,t_s_cal] = compute_t_R(P_W, P_SI_Noise,0,0);
-% 
-% % Display results
-% disp('t_s_cal:');
-% disp(t_s_cal);
-% 
-% disp('R_sw_cal:');
-% disp(R_sw_cal);

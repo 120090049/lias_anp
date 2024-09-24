@@ -134,11 +134,16 @@ class AnPAlgorithm:
         else:
             raise ValueError("No valid R_sw found")
 
-        # t_s = -R_sw @ t_W_Noise_my
-        self.R_sw = R_sw
         self.t_s = t_W_Noise_my
         
-        return t_W_Noise_my, R_sw
+        T = np.eye(4)
+        T[:3, :3] = R_sw  # 将旋转矩阵 R 放入左上角 3x3 部分
+        T[:3, 3] = t_W_Noise_my.reshape(-1)
+        T = np.linalg.inv(T) 
+        R_sw = T[:3, :3] 
+        self.R_sw = R_sw
+        
+        return self.t_s, self.R_sw
 
     def estimate_accuracy(self, R_sw_gt):
         """

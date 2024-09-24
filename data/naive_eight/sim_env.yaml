@@ -5,16 +5,22 @@ points_parameters:
   ymax: 5
   zmin: -1
   zmax: 1
-  pts_num: 200
+  pts_num: 20
 
 sonar_attribute:
   fov_horizontal: 60
   fov_vertical: 20
-  range_max: 5
+  range_max: 6
 
 sonar_image:
   img_width: 500
   img_height: 500
+
+sonar_noise:
+  Rho_noise: 0.0005
+  theta_noise: 0.0002
+  # Rho_noise: 0.005 
+  # theta_noise: 0.001
 
 # 0 manual joystick 
 # 1 manual rviz drag and keyboard

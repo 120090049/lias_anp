@@ -32,7 +32,7 @@ class AnPAlgorithmMatlab:
         R_sw, t_s = self.eng.compute_t_R(P_W_matlab, P_SI_matlab, 0, 0, nargout=2)
 
         # 将结果保存到类的属性中
-        self.R_sw = np.array(R_sw)
+        self.R_sw = np.array(R_sw).T
         self.t_s = np.array(t_s)
         # self.t_s = -self.R_sw @ t_s
 

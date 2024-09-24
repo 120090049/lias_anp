@@ -21,9 +21,9 @@ class TrajectoryGenerator:
         self.delta_t = delta_t
         self.t = 0.0
 
-        self.r = 3
+        self.r = 4
         self.omega = rate
-        self.omega_z = 3*rate
+        self.omega_z = rate
         # 初始化ROS节点和发布器
         rospy.init_node('sonar_pose_publisher', anonymous=True)
         self.pub = rospy.Publisher('/set_sonar_pose', PoseStamped, queue_size=10)

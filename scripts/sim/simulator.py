@@ -88,6 +88,7 @@ class Anp_sim:
 
         self.sonar_marker_pub = rospy.Publisher('/rviz/sonar_view', Marker, queue_size=10)
         self.marker_pub = rospy.Publisher('/rviz/visualization_pts', Marker, queue_size=10)
+        self.marker_pub2 = rospy.Publisher('/rviz/visualization_fov_pts', Marker, queue_size=10)
         self.traj_gt_pub = rospy.Publisher("/rviz/trajectory_gt", Path, queue_size=10)
         
         if sonar_ctrl_mode == 0:
@@ -218,7 +219,7 @@ class Anp_sim:
         # Get points that are within the FOV
         pts_in_fov_index, pose = self.__points_in_fov() # get index of pts in Fov stored in self.__pts_in_fov
         points_in_fov = self.points[pts_in_fov_index]        
-        
+        self.pts_in_fov_index = pts_in_fov_index
         # Convert points to the sonar's coordinate frame
         sonar_position = np.array([self.pose['position']['x'], self.pose['position']['y'], self.pose['position']['z']])
         sonar_orientation = np.array([self.pose['orientation']['x'], self.pose['orientation']['y'], self.pose['orientation']['z'], self.pose['orientation']['w']])
@@ -328,6 +329,7 @@ class Anp_sim:
             
     def __visualize(self):
         self.__publish_points()
+        self.__publish_fov_pts()
         self.__publish_sonar_view()
         self.__publish_traj_gt()
         return
@@ -434,6 +436,32 @@ class Anp_sim:
             marker.points.append(point)
 
         self.marker_pub.publish(marker)
+    
+    def __publish_fov_pts(self):
+        """
+        publish points in rviz       
+        """
+        marker = Marker()
+        marker.header.frame_id = "map"
+        marker.header.stamp = rospy.Time.now()
+        marker.ns = "points"
+        marker.id = 0
+        marker.type = Marker.POINTS
+        marker.action = Marker.ADD
+        marker.pose.orientation.w = 1.0
+
+        marker.scale.x = 0.02
+        marker.scale.y = 0.02
+
+        marker.color.r = 0.0
+        marker.color.g = 1.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+        
+        for point in self.points[self.pts_in_fov_index]  :
+            marker.points.append(Point(point[0], point[1], point[2]+0.01))
+
+        self.marker_pub2.publish(marker)
     
     def __publish_traj_gt(self):
         path_msg = Path()

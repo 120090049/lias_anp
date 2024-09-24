@@ -17,7 +17,8 @@ class SonarDataWriter:
 
         
         # We need to set the frequency
-        frequency = 5/7
+        # frequency = 5/7
+        frequency = 3
         self.last_callback_time = rospy.Time.now()
         self.callback_interval = rospy.Duration(1/frequency)  # Throttle to 5 Hz
 

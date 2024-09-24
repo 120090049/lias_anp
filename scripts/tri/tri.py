@@ -336,10 +336,10 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     else:
         x = None
     
-    return x, determinant
+    return x.reshape(-1), determinant
 
 # 定义梯度下降法进行优化
-def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-5):
+def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-3):
     
     def project_to_2d(P):
         X, Y, Z = P

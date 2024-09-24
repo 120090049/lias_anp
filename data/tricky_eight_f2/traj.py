@@ -16,14 +16,11 @@ class TrajectoryGenerator:
         """
         self.a = -1
         self.b = 1
-        self.z_amplitude = 0.3
+        self.c = 0.3
         self.rate = rate
         self.delta_t = delta_t
         self.t = 0.0
 
-        self.r = 3
-        self.omega = rate
-        self.omega_z = 3*rate
         # 初始化ROS节点和发布器
         rospy.init_node('sonar_pose_publisher', anonymous=True)
         self.pub = rospy.Publisher('/set_sonar_pose', PoseStamped, queue_size=10)
@@ -35,26 +32,16 @@ class TrajectoryGenerator:
         :param t: 时间
         :return: (x, y, z, roll, pitch, yaw)
         """
-        # # 当前时刻的位置
-        # x = self.a * np.sin(self.rate * t) - 1
-        # y = self.b * np.sin(self.rate * t) * np.cos(self.rate * t)
-        # z = self.c * np.sin(self.rate * t)
-
-        # # 使用 delta_t 近似计算轨迹的导数（切线向量）
-        # x_next = self.a * np.sin(self.rate * (t + self.delta_t)) - 1
-        # y_next = self.b * np.sin(self.rate * (t + self.delta_t)) * np.cos(self.rate * (t + self.delta_t))
-        # z_next = self.c * np.sin(self.rate * (t + self.delta_t))
-
-        # 当前时刻的位置（螺旋轨迹）
-        x = self.r * np.cos(self.omega * t)
-        y = self.r * np.sin(self.omega * t)
-        z = self.z_amplitude * np.sin(self.omega_z * t)
+        # 当前时刻的位置
+        x = self.a * np.sin(self.rate * t) - 1
+        y = self.b * np.sin(self.rate * t) * np.cos(self.rate * t)
+        z = self.c * np.sin(self.rate * t)
 
         # 使用 delta_t 近似计算轨迹的导数（切线向量）
-        x_next = self.r * np.cos(self.omega * (t + self.delta_t))
-        y_next = self.r * np.sin(self.omega * (t + self.delta_t))
-        z_next = self.z_amplitude * np.sin(self.omega_z * (t + self.delta_t))
-        
+        x_next = self.a * np.sin(self.rate * (t + self.delta_t)) - 1
+        y_next = self.b * np.sin(self.rate * (t + self.delta_t)) * np.cos(self.rate * (t + self.delta_t))
+        z_next = self.c * np.sin(self.rate * (t + self.delta_t))
+
         # 切线向量的分量
         dx_dt = (x_next - x) / self.delta_t
         dy_dt = (y_next - y) / self.delta_t
