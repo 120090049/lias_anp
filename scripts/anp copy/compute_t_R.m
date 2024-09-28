@@ -1,9 +1,10 @@
 %  function [R_first,R_est_noise_new, t_first,t_est_noise_Gau] = final_algorithm(p_w, d_noise, Var_noise_d, Var_noise_theta, tan_theta_noise,cos_theta_noise)
 function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d, Var_noise_theta)
     % 先单独对t进行高斯牛顿迭代，再由整体函数对R和t进行高斯牛顿迭代
+
     Var_noise_d = double(Var_noise_d);
     Var_noise_theta = double(Var_noise_theta);
-    
+
     tan_theta_noise = p_si(2,:)./p_si(1,:);
     theta_noise = atan(tan_theta_noise);
     cos_theta_noise = cos(theta_noise);
@@ -46,7 +47,7 @@ function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d,
     for i = 1:num_points
         temp_matrix = temp_matrix + (p_w(:, i) - t_est_noise_Gau) * (p_w(:, i) - t_est_noise_Gau)';
     end
-    temp_matrix = temp_matrix * Var_noise_theta^2 / num_points;
+    temp_matrix = temp_matrix * Var_noise_theta / num_points;
     
     modify_matrix = zeros(6, 6);
     modify_matrix(1:3, 1:3) = temp_matrix;
@@ -156,7 +157,7 @@ function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d,
         J_R(2*i,4:6) = (h*e_2'*R_est_noise_new-g*e_1'*R_est_noise_new)/h^2;
     
     end
-    %t_first=t_est_noise_Gau;
+t_first=t_est_noise_Gau;
     temp_result = [0;0;0;t_est_noise_Gau] - inv(J_R'*J_R)*J_R'*Residuals_R;
 
     t_est_noise_Gau = temp_result(4:6);
@@ -166,6 +167,6 @@ function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d,
                 -s_new(2),s_new(1),0];
 
    
-   % R_first=R_est_noise_new;
+R_first=R_est_noise_new;
     R_est_noise_new = R_est_noise_new*expm(s_matrix);
 end
