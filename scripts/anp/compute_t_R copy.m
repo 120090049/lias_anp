@@ -5,10 +5,8 @@ function [R_est_noise_new,t_est_noise_Gau] = compute_t_R(p_w, p_si, Var_noise_d,
     Var_noise_theta = double(Var_noise_theta);
     
     tan_theta_noise = p_si(2,:)./p_si(1,:);
-    cos_theta_noise = p_si(1,:)./vecnorm(p_si(1:2,:));
-    sin_theta_noise = p_si(2,:)./vecnorm(p_si(1:2,:));
     theta_noise = atan(tan_theta_noise);
-%     cos_theta_noise = cos(theta_noise);
+    cos_theta_noise = cos(theta_noise);
     d_noise = p_si(1,:)./cos_theta_noise;
     % 计算 t 的初始估计值
     num_points = size(p_w, 2);

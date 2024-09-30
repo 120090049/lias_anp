@@ -1,6 +1,7 @@
 function [R_Noise_He_app, t_S_Noise_He_app] = Wang_app_algorithm(p_w, p_si_noise,t_s_true,Var_noise_d)
     % 将第一个点作为原点
-    disp(t_s_true);
+    Var_noise_d = double(Var_noise_d);
+
    t_S_Noise_He_app = t_s_true(1:2,:) + (Var_noise_d)*randn(2, 1);
 %      t_S_Noise_He_app = t_s_true(1:2,:);
 %    t_S_Noise_He_app = p_si_noise(:,1);

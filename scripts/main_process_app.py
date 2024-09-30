@@ -2,8 +2,7 @@
 import numpy as np
 import transforms3d
 
-from anp.anp_alg import AnPAlgorithm
-from anp.anp_alg_matlab import AnPAlgorithmMatlab
+from anp.anp_alg import AnPAlgorithmPython, AnPAlgorithmMatlab, NONAPPAlgorithm, APPAlgorithm
 
 from tri.tri import ANRS, GTRS, gradient_descent
 
@@ -118,7 +117,7 @@ def coordinate_transform(p0, p1, T0, T1):
 if __name__ == "__main__":
 
     sonar_data_dir = str(lias_anp_dir) + "/data/naive_eight/sonar_data_noisy.csv"
-    reord_dir = str(lias_anp_dir) + "/record/"
+    reord_dir = str(lias_anp_dir) + "/record/app"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
     data = reader.get_data()
@@ -130,8 +129,7 @@ if __name__ == "__main__":
     record_folder = f"{reord_dir}/record{file_number + 1}"
     os.makedirs(record_folder, exist_ok=True)
 
-    anp_algorithm = AnPAlgorithm()
-    # anp_algorithm = AnPAlgorithmMatlab()
+    app_algorithm = APPAlgorithm()
     
     # initialize
     T0 = pose_to_transform_matrix(data[0]['pose'])
@@ -205,7 +203,10 @@ if __name__ == "__main__":
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
-        t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
+        
+        R_SW = pose_to_transform_matrix(entry['pose'])[0:3,0:3]
+        t_S = pose_to_transform_matrix(entry['pose'])[0:3,3]
+        t_s_cal, R_sw_cal = app_algorithm.compute_t_R(q_si2, P_w, -R_SW@t_S)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列

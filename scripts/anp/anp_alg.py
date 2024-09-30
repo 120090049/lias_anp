@@ -325,7 +325,7 @@ class APPAlgorithm:
         # self.eng.addpath('/home/clp/catkin_ws/src/lias_anp/scripts/anp/')
         print("Start matlab engine, ANP module successfully initialized!")
         
-    def compute_t_R(self, P_SI, P_W, t_true, Var_noise=10e-2):
+    def compute_t_R(self, P_SI, P_W, t_true, Var_noise=0):
         t_true = t_true.reshape(-1,1)
         # 将 numpy 数组转换为 matlab.double 类型
         P_W_matlab = matlab.double(P_W.tolist())
