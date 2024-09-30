@@ -5,7 +5,7 @@ from geometry_msgs.msg import PoseStamped
 from tf.transformations import quaternion_from_euler
 
 class TrajectoryGenerator:
-    def __init__(self, rate=1.0, delta_t=0.01):
+    def __init__(self, rate=0.1, delta_t=0.01):
         """
         初始化轨迹生成器参数
         :param a: 水平方向振幅
@@ -14,10 +14,10 @@ class TrajectoryGenerator:
         :param rate: 轨迹速度
         :param delta_t: 时间步长
         """
-        self.a = -1
-        self.b = 1
-        self.z_amplitude = 0.3
         self.rate = rate
+        self.a = -3
+        self.b = 3
+        self.z_amplitude = 0.3
         self.delta_t = delta_t
         self.t = 0.0
 
@@ -35,42 +35,12 @@ class TrajectoryGenerator:
         :param t: 时间
         :return: (x, y, z, roll, pitch, yaw)
         """
-        # # 当前时刻的位置
-        # x = self.a * np.sin(self.rate * t) - 1
-        # y = self.b * np.sin(self.rate * t) * np.cos(self.rate * t)
-        # z = self.c * np.sin(self.rate * t)
-
-        # # 使用 delta_t 近似计算轨迹的导数（切线向量）
-        # x_next = self.a * np.sin(self.rate * (t + self.delta_t)) - 1
-        # y_next = self.b * np.sin(self.rate * (t + self.delta_t)) * np.cos(self.rate * (t + self.delta_t))
-        # z_next = self.c * np.sin(self.rate * (t + self.delta_t))
-
-        # 当前时刻的位置（螺旋轨迹）
-        x = self.r * np.cos(self.omega * t)
-        y = self.r * np.sin(self.omega * t)
-        z = self.z_amplitude * np.sin(self.omega_z * t)
-
-        # 使用 delta_t 近似计算轨迹的导数（切线向量）
-        x_next = self.r * np.cos(self.omega * (t + self.delta_t))
-        y_next = self.r * np.sin(self.omega * (t + self.delta_t))
-        z_next = self.z_amplitude * np.sin(self.omega_z * (t + self.delta_t))
-        
-        # 切线向量的分量
-        dx_dt = (x_next - x) / self.delta_t
-        dy_dt = (y_next - y) / self.delta_t
-        dz_dt = (z_next - z) / self.delta_t
-
-        # 归一化切线向量
-        magnitude = np.sqrt(dx_dt**2 + dy_dt**2 + dz_dt**2)
-        tangent_x = dx_dt / magnitude
-        tangent_y = dy_dt / magnitude
-        tangent_z = dz_dt / magnitude
-
-        # 计算 roll, pitch, yaw
-        roll = 0  # 假设 roll 为 0
-        pitch = -np.arctan2(tangent_z, np.sqrt(tangent_x**2 + tangent_y**2))  # 计算俯仰角 pitch
-        yaw = np.arctan2(tangent_y, tangent_x)  # 计算航向角 yaw
-
+        x = self.a * np.sin(self.rate * t)-1
+        y = self.b * np.sin(self.rate * t) * np.cos(self.rate * t)
+        z = 0.5 * np.sin(self.rate * t)
+        roll = 0.2 * np.sin(self.rate * t)
+        pitch = 0.2 * np.cos(self.rate * t)
+        yaw = 0.2 * np.sin(self.rate * t)
         return x, y, z, roll, pitch, yaw
 
     def publish_pose(self):

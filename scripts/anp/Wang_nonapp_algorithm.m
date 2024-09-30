@@ -25,7 +25,7 @@ function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm(P_W,P_SI_Noise)
     % 计算 t_S_Noise_He
     t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r_1;
     
-    if t_S_Noise_He(1,:) > 0
+    if t_S_Noise_He(1,:) < 0
         r = r_2; 
     else
         r = r_1; 

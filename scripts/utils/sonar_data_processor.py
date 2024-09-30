@@ -67,7 +67,7 @@ class SonarDataWriter:
         rate = rospy.Rate(20)
         while not rospy.is_shutdown():
             rate.sleep()
-            if self.callback_times > 45:
+            if self.callback_times > 120:
                 break
 
 class SonarDataReader:

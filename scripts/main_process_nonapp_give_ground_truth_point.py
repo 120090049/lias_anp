@@ -3,7 +3,6 @@ import numpy as np
 import transforms3d
 
 from anp.anp_alg import AnPAlgorithmPython, AnPAlgorithmMatlab, NONAPPAlgorithm, APPAlgorithm
-# from anp.anp_alg_matlab import 
 
 from tri.tri import ANRS, GTRS, gradient_descent
 
@@ -117,8 +116,8 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/naive_eight/sonar_data_noisy.csv"
-    reord_dir = str(lias_anp_dir) + "/record/nonapp"
+    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data.csv"
+    reord_dir = str(lias_anp_dir) + "/record/app"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
     data = reader.get_data()
@@ -135,7 +134,8 @@ if __name__ == "__main__":
     # initialize
     T0 = pose_to_transform_matrix(data[0]['pose'])
     T1 = pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
-    
+    T1_gt = T1
+
     start_index = 0
     theta_Rho0 = data[start_index]['si_q_theta_Rho']
     pts_indice0 = data[start_index]['pts_indice']
@@ -151,25 +151,16 @@ if __name__ == "__main__":
     
     # Dictionary to store estimated points in world coordinate system
     P_dict = {}
-    reconstruction_error_distance_list = []
+    reconstruction_error_list = []
     
     ## TRI!! NEED TO TRANSFORM COORDINATE SYSTEM
     T0_tri = coordinate_transform_Pose(T0)
     T1_tri = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1_tri) @ T0_tri
     for i in range(len(theta_Rho)):
-        # s_P, determinant = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        
-        # Transform back to sim coordinate system
-        w_P = ( T0_tri @ np.hstack([s_P, 1]) )[:3]
-        w_P = R_z_90.T @ w_P 
-    
         key = common_indices[i]
-        P_dict[key] = w_P
-        reconstruction_error_distance = np.linalg.norm( w_P_gt[i] - w_P )
-        reconstruction_error_distance_list.append(reconstruction_error_distance)
-    print(sum(reconstruction_error_distance_list)/len(reconstruction_error_distance_list))   
+        P_dict[key] = w_P_gt[i] 
+        
     ## END TRI!! NEED TO TRANSFORM P_W back to original COORDINATE SYSTEM
     
     # 初始化空列表用于存储轨迹
@@ -180,10 +171,16 @@ if __name__ == "__main__":
     estimated_poses_y = []
     estimated_poses_z = []
     
-    # General idea is we have T0 and T1, and we want to get T2
+    ##############################################################
+    ## General idea is we have T0 and T1, and we want to get T2 ##
+    ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
-        # ANP
+        
+        ############################
+        ### ANP
+        ############################
+        
         ## Get q_si2 and P_w for ANP
         theta_Rho2 = entry['si_q_theta_Rho']
         q_si_x2 = np.cos(theta_Rho2.T[0]) * theta_Rho2.T[1]
@@ -191,7 +188,7 @@ if __name__ == "__main__":
         q_si2 = np.vstack([q_si_x2, q_si_y2])
         pts_indice2 = entry['pts_indice']
 
-        ##  Find matching pairs of q_si and and w_P in dictionary
+        ##  Find matching pairs of q_si and and the w_P in dictionary
         filtered_P_w_values = []
         filtered_q_si_index = []
         for j, idx in enumerate( pts_indice2 ):
@@ -204,83 +201,37 @@ if __name__ == "__main__":
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
+        
         t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
-        # t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
+
+
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
-                
-        
-        #####################################################
-        # TRI
-        T_matrix = np.linalg.inv(T2) @ T1
-        
         T2_gt = pose_to_transform_matrix(entry['pose'])
         
+        ##############################
+        # TRI
+        ##############################
+                
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
-        # Just for double check
         w_P_gt = entry['w_p']
         w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[w_P_gt_indices] 
-        reconstrubtion_error_list = []
-        
-        determinant_list = []
-        
-        new_pts_num = 0
-        new_pts_valid_num = 0
-        
-        # This is for tri
-        T1_tri = coordinate_transform_Pose(T1)
-        T2_tri = coordinate_transform_Pose(T2)
-        T_matrix = np.linalg.inv(T2_tri) @ T1_tri
-
-        for i in range(len(theta_Rho)):
-            # s_P_init, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                
+        new_pts_added = 0
+        for i in range(len(theta_Rho)): # for element in matched pairs
             key = common_indices[i]
             if key not in P_dict:
-                new_pts_num+=1
-                s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-                determinant_list.append(determinant)
-                # if abs(determinant) > 0.004:
-                if True:
-                    
-                    # Transform back to sim coordinate system
-                    w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                    w_P = R_z_90.T @ w_P 
-                    
-                    difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < 0.2:
-                        new_pts_valid_num+=1
-                        # P_dict[key] = w_P
-                        P_dict[key] = w_P_gt[i]
-                        reconstrubtion_error_list.append(difference)
-                # s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix, tol = 0.01)
-                # if good_reconstruct:
-            else:
-                s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+                P_dict[key] = w_P_gt[i]
+                new_pts_added += 1
 
-                # Transform back to sim coordinate system
-                w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                w_P = R_z_90.T @ w_P 
-
-                difference = np.linalg.norm( w_P - w_P_gt[i] )
-                # ( T1 @ np.hstack([s_P, 1]) )[:3] - w_P_gt[i]
-        print("new_pts_num: ", new_pts_num, 
-            "new_pts_valid_num:", new_pts_valid_num, 
-            "reconstrubtion_error_list maximum error:",\
-            max(reconstrubtion_error_list) if reconstrubtion_error_list else "empty")
+        print("new_pts_num: ", new_pts_added)
             
         theta_Rho1 = theta_Rho2
         pts_indice1 = pts_indice2
         
-        T1 = T2
-
-
-        # print(timestep)
-        T2_gt = pose_to_transform_matrix(entry['pose'])
-        # T2_gt = coordinate_transform_Pose(T2_gt)
-        # print()
-        # print(T2-T2_gt)
+        ##################################################
         # 提取x和y坐标（即矩阵的第1和第2列的第4个元素）
         real_poses_x.append(T2_gt[0, 3])
         real_poses_y.append(T2_gt[1, 3])
@@ -289,6 +240,8 @@ if __name__ == "__main__":
         estimated_poses_y.append(T2[1, 3])
         estimated_poses_z.append(T2[2, 3])
     
+        T1 = T2
+        T1_gt = T2_gt
         
         # 绘制三维轨迹
         fig = plt.figure(figsize=(10, 8))
@@ -304,11 +257,9 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
-        pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
-        determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
-        # reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
-        reconstrubtion_error_evaluation = None
-        print(f'\rPose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
+        # pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
+        print(f'\rPose_estimation_error: {pose_estimation_error}')
         if RECORD:
             if timestep == len(data) - 1:
                 n_points = len(real_poses_x)
@@ -337,7 +288,7 @@ if __name__ == "__main__":
             debug_file = record_folder + "/debug_file.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow([timestep, pose_estimation_error, reconstrubtion_error_evaluation, determinant_evaluation])
+                writer.writerow([timestep, pose_estimation_error])
    
                
         else:
