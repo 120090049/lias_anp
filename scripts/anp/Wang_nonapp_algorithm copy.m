@@ -1,4 +1,4 @@
-function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm(P_W,P_SI_Noise, R_true)
+function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm_p(P_W,P_SI_Noise)
     n = length(P_W);
 
     % 计算 W_Noise_He 和 H_Noise_He
@@ -22,18 +22,15 @@ function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm(P_W,P_SI_Noise, 
     r_1 = sqrt(2) * V_Noise_He(:, 6);
     r_2 = -sqrt(2) * V_Noise_He(:, 6);
 
-
-
-    if r_1(1,:)*R_true(1,1) > 0
+    % 计算 t_S_Noise_He
+    t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r_1;
+    
+    if t_S_Noise_He(1,:) < 0
+        r = r_2; 
+    else
         r = r_1; 
         t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r_2;
-    else
-        r = r_2; 
-        t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r_1;
     end
-
-%     % 计算 t_S_Noise_He
-%     t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r;
 
     % 计算旋转矩阵 R_Noise_He
     R_Noise_He = zeros(3, 3);

@@ -159,19 +159,9 @@ if __name__ == "__main__":
     T1_tri = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1_tri) @ T0_tri
     for i in range(len(theta_Rho)):
-        # s_P, determinant = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        
-        # Transform back to sim coordinate system
-        w_P = ( T0_tri @ np.hstack([s_P, 1]) )[:3]
-        w_P = R_z_90.T @ w_P 
-    
         key = common_indices[i]
-        reconstruction_error = np.linalg.norm( w_P_gt[i] - w_P )
-        if reconstruction_error < 0.03:
-            P_dict[key] = w_P
-            reconstruction_error_list.append(reconstruction_error)
-    print(sum(reconstruction_error_list)/len(reconstruction_error_list))   
+        P_dict[key] = w_P_gt[i]
+        
     ## END TRI!! NEED TO TRANSFORM P_W back to original COORDINATE SYSTEM
     
     # 初始化空列表用于存储轨迹

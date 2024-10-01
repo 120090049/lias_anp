@@ -116,8 +116,8 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data.csv"
-    reord_dir = str(lias_anp_dir) + "/record/app"
+    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data_noisy.csv"
+    reord_dir = str(lias_anp_dir) + "/record/nonapp"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
     data = reader.get_data()
@@ -202,7 +202,9 @@ if __name__ == "__main__":
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
         
-        t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
+        R_SW = pose_to_transform_matrix(entry['pose'])[0:3,0:3]
+        t_S = pose_to_transform_matrix(entry['pose'])[0:3,3].reshape(-1,1)
+        t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w, R_SW)
 
 
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵

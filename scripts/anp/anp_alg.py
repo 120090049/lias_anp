@@ -256,13 +256,14 @@ class NONAPPAlgorithm:
         # self.eng.addpath('/home/clp/catkin_ws/src/lias_anp/scripts/anp/')
         print("Start matlab engine, ANP module successfully initialized!")
         
-    def compute_t_R(self, P_SI, P_W):
+    def compute_t_R(self, P_SI, P_W, R_true):
         # 将 numpy 数组转换为 matlab.double 类型
         P_SI_matlab = matlab.double(P_SI.tolist())
         P_W_matlab = matlab.double(P_W.tolist())
+        R_true_matlab = matlab.double(R_true.tolist())
 
         # 调用 MATLAB 中的 compute_t_R 函数
-        R_sw, t_s = self.eng.Wang_nonapp_algorithm(P_W_matlab, P_SI_matlab, nargout=2)
+        R_sw, t_s = self.eng.Wang_nonapp_algorithm(P_W_matlab, P_SI_matlab, R_true_matlab, nargout=2)
 
         # 将结果保存到类的属性中
         self.R_sw = np.array(R_sw).T

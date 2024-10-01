@@ -33,13 +33,6 @@ R_SW = [0.98007119, 0.19820539, 0.0132322;
 
 t_S = [-1.99112736; 0.13173626; -0.49556368];
 
-
-T = [ 0.98006728, -0.01235945, -0.19828103, -0.94843023;
-       0.01010873,  0.99987252, -0.01235945, -0.05150115;
-       0.19840851,  0.01010873,  0.98006728,  0.02578488;
-       0.        ,  0.        ,  0.        ,  1.        ];
-
-
 P_S_est = R_SW*(P_W - t_S);
 
 d = vecnorm(P_S_est);
@@ -51,24 +44,24 @@ theta_est = atan(tan_theta);
 P_SI(1,:) = d.*cos_theta;
 P_SI(2,:) = d.*sin_theta;
 
-[ R_sw_my,t_s_my] = compute_t_R(P_W, P_SI,0,0);
-disp('t_s_my:');
-disp(t_s_my);
-disp('R_sw_my:');
-disp(R_sw_my);
+% [ R_sw_my,t_s_my] = compute_t_R(P_W, P_SI,0,0);
+% disp('t_s_my:');
+% disp(t_s_my);
+% disp('R_sw_my:');
+% disp(R_sw_my);
 
-[ R_sw_nonapp,t_s_nonapp] = Wang_nonapp_algorithm(P_W, P_SI);
+[ R_sw_nonapp,t_s_nonapp] = Wang_nonapp_algorithm(P_W, P_SI, R_SW);
 disp('t_s_nonapp:');
 disp(t_s_nonapp);
 disp('R_sw_nonapp:');
 disp(R_sw_nonapp);
-
-t_s_true = -R_SW*t_S;
-[ R_sw_app,t_s_app] = Wang_app_algorithm( P_W, P_SI, t_s_true ,0);
-disp('t_s_app:');
-disp(t_s_app);
-disp('R_sw_app:');
-disp(R_sw_app);
+% 
+% t_s_true = -R_SW*t_S;
+% [ R_sw_app,t_s_app] = Wang_app_algorithm( P_W, P_SI, t_s_true ,0);
+% disp('t_s_app:');
+% disp(t_s_app);
+% disp('R_sw_app:');
+% disp(R_sw_app);
 
 % % Noise data
 % tan_theta_noise = tan_theta + randn() * 0.0005;
