@@ -340,7 +340,7 @@ if __name__ == "__main__":
             debug_file = record_folder + "/traj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                row = np.concatenate([timestep, T2.flatten(), T2_gt.flatten()])
+                row = np.concatenate([T2.flatten(), T2_gt.flatten()])
                 writer.writerow(row)
                
         else:
