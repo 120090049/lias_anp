@@ -22,7 +22,13 @@ sys.path.append(scripts_dir)
 from utils.sonar_data_processor import SonarDataReader
 from matplotlib import cm
 
-RECORD = True
+import yaml
+yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
+with open(yaml_file_path, 'r') as file:
+    params = yaml.safe_load(file)
+    RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    RECORD = params['RECORD']
+    DATA_PATH = params['data_path']
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -117,7 +123,7 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data.csv"
+    sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/anp"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
@@ -131,7 +137,6 @@ if __name__ == "__main__":
     os.makedirs(record_folder, exist_ok=True)
 
     anp_algorithm = AnPAlgorithmMatlab()
-    # nonapp_algorithm = NONAPPAlgorithm()
     
     # initialize
     T0 = pose_to_transform_matrix(data[0]['pose'])
@@ -159,7 +164,6 @@ if __name__ == "__main__":
     T1_tri = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1_tri) @ T0_tri
     for i in range(len(theta_Rho)):
-        # s_P, determinant = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         
         # Transform back to sim coordinate system
@@ -181,10 +185,14 @@ if __name__ == "__main__":
     estimated_poses_y = []
     estimated_poses_z = []
     
-    # General idea is we have T0 and T1, and we want to get T2
+    ##############################################################
+    ## General idea is we have T0 and T1, and we want to get T2 ##
+    ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
-        # ANP
+        ############################
+        ### ANP
+        ############################
         ## Get q_si2 and P_w for ANP
         theta_Rho2 = entry['si_q_theta_Rho']
         q_si_x2 = np.cos(theta_Rho2.T[0]) * theta_Rho2.T[1]
@@ -205,6 +213,7 @@ if __name__ == "__main__":
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
+        
         t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
         # t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
@@ -219,7 +228,6 @@ if __name__ == "__main__":
         T2_gt = pose_to_transform_matrix(entry['pose'])
         
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
-        # Just for double check
         w_P_gt = entry['w_p']
         w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[w_P_gt_indices] 
@@ -247,7 +255,7 @@ if __name__ == "__main__":
                     w_P = R_z_90.T @ w_P 
                     
                     difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < 0.2:
+                    if difference < RECONSTRUCTION_ERROR_THRESHOLD:
                         new_pts_valid_num+=1
                         P_dict[key] = w_P
                         reconstrubtion_error_list.append(difference)

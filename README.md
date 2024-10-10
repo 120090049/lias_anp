@@ -2,7 +2,8 @@
 
 roscore
 rosrun lias_anp simulator.py
-rosrun lias_anp traj_generator.py 
+rosrun lias_anp traj_generator_bigeight.py 
+rosrun lias_anp traj_generator_square.py 
 
 roscd lias_anp && rviz -d ./rviz/sim.rviz 
 

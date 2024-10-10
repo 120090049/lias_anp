@@ -22,7 +22,14 @@ sys.path.append(scripts_dir)
 from utils.sonar_data_processor import SonarDataReader
 from matplotlib import cm
 
-RECORD = True
+import yaml
+yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
+with open(yaml_file_path, 'r') as file:
+    params = yaml.safe_load(file)
+    RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    RECORD = params['RECORD']
+    DATA_PATH = params['data_path']
+    
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -117,7 +124,7 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/naive_eight/sonar_data_noisy.csv"
+    sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/nonapp"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
@@ -158,7 +165,6 @@ if __name__ == "__main__":
     T1_tri = coordinate_transform_Pose(T1)
     T_matrix = np.linalg.inv(T1_tri) @ T0_tri
     for i in range(len(theta_Rho)):
-        # s_P, determinant = GTRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
         
         # Transform back to sim coordinate system
@@ -180,10 +186,14 @@ if __name__ == "__main__":
     estimated_poses_y = []
     estimated_poses_z = []
     
-    # General idea is we have T0 and T1, and we want to get T2
+    ##############################################################
+    ## General idea is we have T0 and T1, and we want to get T2 ##
+    ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
-        # ANP
+        ############################
+        ### ANP
+        ############################
         ## Get q_si2 and P_w for ANP
         theta_Rho2 = entry['si_q_theta_Rho']
         q_si_x2 = np.cos(theta_Rho2.T[0]) * theta_Rho2.T[1]
@@ -204,7 +214,8 @@ if __name__ == "__main__":
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
-        t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
+        R_SW = pose_to_transform_matrix(entry['pose'])[0:3,0:3]
+        t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w, R_SW)
         # t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
@@ -241,15 +252,13 @@ if __name__ == "__main__":
                 new_pts_num+=1
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 determinant_list.append(determinant)
-                # if abs(determinant) > 0.004:
                 if True:
-                    
                     # Transform back to sim coordinate system
                     w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
                     w_P = R_z_90.T @ w_P 
                     
                     difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < 0.2:
+                    if difference < RECONSTRUCTION_ERROR_THRESHOLD:
                         new_pts_valid_num+=1
                         P_dict[key] = w_P
                         reconstrubtion_error_list.append(difference)
@@ -257,13 +266,11 @@ if __name__ == "__main__":
                 # if good_reconstruct:
             else:
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-
                 # Transform back to sim coordinate system
                 w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
                 w_P = R_z_90.T @ w_P 
-
                 difference = np.linalg.norm( w_P - w_P_gt[i] )
-                # ( T1 @ np.hstack([s_P, 1]) )[:3] - w_P_gt[i]
+                
         print("new_pts_num: ", new_pts_num, 
             "new_pts_valid_num:", new_pts_valid_num, 
             "reconstrubtion_error_list maximum error:",\

@@ -21,8 +21,13 @@ sys.path.append(scripts_dir)
 from utils.sonar_data_processor import SonarDataReader
 from matplotlib import cm
 
-RECORD = True
-
+import yaml
+yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
+with open(yaml_file_path, 'r') as file:
+    params = yaml.safe_load(file)
+    RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    RECORD = params['RECORD']
+    DATA_PATH = params['data_path']
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
 R_z_90 = T_z_90[:3, :3]
@@ -116,7 +121,7 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data_noisy.csv"
+    sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/nonapp"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
@@ -176,7 +181,8 @@ if __name__ == "__main__":
     ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
-        
+        if timestep == 263:
+            continue
         ############################
         ### ANP
         ############################

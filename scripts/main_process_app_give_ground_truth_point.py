@@ -21,7 +21,13 @@ sys.path.append(scripts_dir)
 from utils.sonar_data_processor import SonarDataReader
 from matplotlib import cm
 
-RECORD = True
+import yaml
+yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
+with open(yaml_file_path, 'r') as file:
+    params = yaml.safe_load(file)
+    RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    RECORD = params['RECORD']
+    DATA_PATH = params['data_path']
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -116,7 +122,7 @@ def coordinate_transform(p0, p1, T0, T1):
 
 if __name__ == "__main__":
 
-    sonar_data_dir = str(lias_anp_dir) + "/data/big_eight/sonar_data.csv"
+    sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/app"
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
@@ -204,7 +210,7 @@ if __name__ == "__main__":
         
         R_SW = pose_to_transform_matrix(entry['pose'])[0:3,0:3]
         t_S = pose_to_transform_matrix(entry['pose'])[0:3,3].reshape(-1,1)
-        t_s_cal, R_sw_cal = app_algorithm.compute_t_R(q_si2, P_w, -R_SW@t_S)
+        t_s_cal, R_sw_cal = app_algorithm.compute_t_R(q_si2, P_w, -R_SW.T@t_S)
 
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
