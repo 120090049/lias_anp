@@ -1,2 +1,4 @@
 build/*
-/record
+/record/*
+!/record/analysis_traj.py
+

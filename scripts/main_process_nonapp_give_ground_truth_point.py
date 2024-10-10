@@ -181,8 +181,6 @@ if __name__ == "__main__":
     ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
-        if timestep == 263:
-            continue
         ############################
         ### ANP
         ############################
@@ -268,6 +266,7 @@ if __name__ == "__main__":
         # pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
         pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         print(f'\rPose_estimation_error: {pose_estimation_error}')
+
         if RECORD:
             if timestep == len(data) - 1:
                 n_points = len(real_poses_x)
@@ -290,13 +289,15 @@ if __name__ == "__main__":
                 
                 plt.show()  # 图像窗口将一直显示，直到你手动关闭它
             
-            file_name = f"{record_folder}/time_{timestep}.png"
-            plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
+            img_name = f"{record_folder}/time_{timestep}.png"
+            plt.savefig(img_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-            debug_file = record_folder + "/debug_file.csv"
+            debug_file = record_folder + "/traj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                writer.writerow([timestep, pose_estimation_error])
+                row = np.concatenate([timestep, T2.flatten(), T2_gt.flatten()])
+                writer.writerow(row)
+
    
                
         else:
