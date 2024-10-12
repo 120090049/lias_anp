@@ -3,6 +3,11 @@ RECORD: TRUE
 
 # data_path: "/data/big_eight/sonar_data.csv"
 # data_path: "/data/big_eight/sonar_data_noisy.csv"
-# data_path: "/data/square/sonar_data_noisy.csv"
+
 # data_path: "/data/square/sonar_data.csv"
-data_path: "/data/eight/sonar_data.csv"
+# data_path: "/data/circle/sonar_data.csv"
+# data_path: "/data/eight/sonar_data.csv"
+
+# data_path: "/data/square/sonar_data_noisy.csv"
+# data_path: "/data/circle/sonar_data_noisy.csv"
+# data_path: "/data/eight/sonar_data_noisy.csv"
