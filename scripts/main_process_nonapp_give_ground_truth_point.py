@@ -292,10 +292,10 @@ if __name__ == "__main__":
             img_name = f"{record_folder}/time_{timestep}.png"
             plt.savefig(img_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-            debug_file = record_folder + "/traj.csv"
+            debug_file = record_folder + "/atraj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                row = np.concatenate([timestep, T2.flatten(), T2_gt.flatten()])
+                row = np.concatenate([T2.flatten(), T2_gt.flatten()])
                 writer.writerow(row)
 
    

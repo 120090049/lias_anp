@@ -9,8 +9,8 @@ project_root = roslib.packages.get_pkg_dir('lias_anp')
 root_dir = os.path.abspath(os.path.join(project_root, 'scripts'))
 sys.path.append(root_dir)
 
-DETERMINANT_THRESHOLD = 0.008
-DETERMINANT_THRESHOLD = 0.005
+# DETERMINANT_THRESHOLD = 0.008
+DETERMINANT_THRESHOLD = 0.0
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -71,7 +71,8 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
 
     A = np.vstack([a1, a2, a3])
     b = np.array([b1, b2, b3])
-  
+    print(A)
+    print(b)
 
     determinant = np.linalg.det(A)
     # if abs(determinant) > DETERMINANT_THRESHOLD:
@@ -84,9 +85,13 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
     b_tilde_prime = np.append(b, R)
     
     P_tilde_prime = np.linalg.inv(A_tilde_prime.T @ A_tilde_prime) @ A_tilde_prime.T @ b_tilde_prime      
-    # else:
-    #     P_tilde_prime = None
-    return P_tilde_prime, determinant 
+    
+
+    # 计算最小二乘解 x = (A^T A)^(-1) A^T b
+    least_square = np.linalg.inv(A.T @ A) @ (A.T @ b)
+    
+    # return P_tilde_prime, determinant 
+    return P_tilde_prime, least_square 
 
 def GTRS_old(T_matrix, theta_Rho, theta_Rho_prime):
  

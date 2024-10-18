@@ -1,6 +1,13 @@
-RECONSTRUCTION_ERROR_THRESHOLD: 0.1
-RECORD: TRUE
+RECONSTRUCTION_ERROR_THRESHOLD: 0.2
+# ANP_METHOD: ""
+ANP_METHOD: "anp"
+# ANP_METHOD: "nonapp"
+# ANP_METHOD: "app"
 
+RECORD: TRUE
+# RECORD: FALSE
+
+ERROR_THRESHOLD_BREAK: 0.5
 # data_path: "/data/big_eight/sonar_data.csv"
 # data_path: "/data/big_eight/sonar_data_noisy.csv"
 
@@ -11,3 +18,12 @@ RECORD: TRUE
 # data_path: "/data/square/sonar_data_noisy.csv"
 # data_path: "/data/circle/sonar_data_noisy.csv"
 # data_path: "/data/eight/sonar_data_noisy.csv"
+
+# data_path: "/data/Rho_noise0.00001theta_noise0.00001/square/sonar_data_noisy.csv"
+# data_path: "/data/Rho_noise0.00001theta_noise0.00001/circle/sonar_data_noisy.csv"
+data_path: "/data/orientation_along_tangent_direction/Rho_noise0.00001theta_noise0.00001/circle/sonar_data.csv"
+
+# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/square_all_noisy/sonar_data_noisy.csv"
+# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/circle_all_noisy/sonar_data_noisy.csv"
+# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/eight_all_noisy/sonar_data.csv"
+

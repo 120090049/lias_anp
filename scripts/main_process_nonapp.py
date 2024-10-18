@@ -191,6 +191,7 @@ if __name__ == "__main__":
     ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
         print(f"Timestep: {timestep}") 
+        
         ############################
         ### ANP
         ############################
@@ -310,7 +311,8 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
-        pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        # pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         # reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
         reconstrubtion_error_evaluation = None
@@ -340,17 +342,21 @@ if __name__ == "__main__":
             file_name = f"{record_folder}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-            debug_file = record_folder + "/traj.csv"
+            debug_file = record_folder + "/atraj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                row = np.concatenate([timestep, T2.flatten(), T2_gt.flatten()])
+                row = np.concatenate([T2.flatten(), T2_gt.flatten()])
                 writer.writerow(row)
                
         else:
-            plt.show(block=False)
-            if timestep % 15 == 0:
-                plt.pause(1)  # 暂停5秒
-            else:
-                plt.pause(0.1)
-            plt.close()  # 关闭图表窗口
-        
+            if timestep == 200:
+                plt.show() 
+                print("wait")
+            else:     
+                plt.show(block=False)
+                if timestep % 5 == 0:
+                    plt.pause(2)  # 暂停5秒
+                else:
+                    plt.pause(0.2)
+                plt.close()  # 关闭图表窗口
+            continue

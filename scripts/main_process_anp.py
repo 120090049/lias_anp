@@ -2,10 +2,6 @@
 import numpy as np
 import transforms3d
 
-from anp.anp_alg import AnPAlgorithmPython, AnPAlgorithmMatlab, NONAPPAlgorithm, APPAlgorithm
-# from anp.anp_alg_matlab import 
-
-from tri.tri import ANRS, GTRS, gradient_descent
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -13,6 +9,7 @@ import sys
 import csv
 import os
 
+from matplotlib import cm
 
 # Append the root dir
 import sys, roslib, os
@@ -20,7 +17,12 @@ lias_anp_dir = roslib.packages.get_pkg_dir('lias_anp')
 scripts_dir = os.path.abspath(os.path.join(lias_anp_dir, 'scripts'))
 sys.path.append(scripts_dir)
 from utils.sonar_data_processor import SonarDataReader
-from matplotlib import cm
+from utils.match_pairs import get_match_pairs
+from anp.anp_alg import AnPAlgorithm
+from tri.tri import ANRS, GTRS, gradient_descent
+from utils.pose2matrix import pose_to_transform_matrix, ros_pose_to_transform_matrix, transform_matrix_to_ros_pose
+from utils.coordinate_system_transform import coordinate_transform_Pose, coordinate_transform_Pose_back, coordinate_transform_pt, coordinate_transform_pt_back
+from utils.transformation_matrix_add_noise import add_noise_to_pose
 
 import yaml
 yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
@@ -29,102 +31,12 @@ with open(yaml_file_path, 'r') as file:
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
-
-T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
-T_z_min90 = T_z_90.T
-R_z_90 = T_z_90[:3, :3]
-
-def quaternion_to_rotation_matrix(quaternion):
-    """将四元数转换为旋转矩阵"""
-    return transforms3d.quaternions.quat2mat(quaternion)
-
-def pose_to_transform_matrix(pose):
-    """将位姿转换为齐次变换矩阵"""
-    position = pose['position']
-    orientation = pose['orientation']
-    # 提取平移向量
-    translation = np.array([position['x'], position['y'], position['z']])
-    # 提取四元数并转换为旋转矩阵
-    quaternion = [orientation['w'], orientation['x'], orientation['y'], orientation['z']]
-    rotation_matrix = quaternion_to_rotation_matrix(quaternion)
-    
-    # 构建齐次变换矩阵
-    transform_matrix = np.eye(4)
-    transform_matrix[:3, :3] = rotation_matrix
-    transform_matrix[:3, 3] = translation
-    
-    return transform_matrix
-
-def compute_D(T_matrix, theta, theta_prime):
-    """
-    Compute the determinant D(A0; R, t) for given parameters.
-    """
-    R = T_matrix[:3, :3]
-    t = T_matrix[:3, 3]
-    
-    def skew_symmetric_matrix(t):
-        """
-        Create a skew-symmetric matrix for a vector t.
-        """
-        return np.array([
-            [0, -t[2], t[1]],
-            [t[2], 0, -t[0]],
-            [-t[1], t[0], 0]
-        ])
-    ux = np.array([1, 0, 0])
-    uy = np.array([0, 1, 0])
-    
-    r1 = R[0, :]
-    r2 = R[1, :]
-        
-    t_cross = skew_symmetric_matrix(t)
-    
-    determinant = - (r1 - np.tan(theta) * r2).T @ t_cross @ (ux - np.tan(theta_prime) * uy)
-    
-    return determinant
-
-def get_match_pairs(si_q_theta_Rho, pts_indice, si_q_theta_Rho_prime, pts_indice_prime):
-    
-    # 找到共同的索引
-    common_indices = np.intersect1d(pts_indice, pts_indice_prime)
-
-    # 获取t0时刻的匹配坐标
-    t0_indices = [np.where(pts_indice == idx)[0][0] for idx in common_indices]
-    matched_t0 = si_q_theta_Rho[t0_indices]
-
-    # 获取t1时刻的匹配坐标
-    t1_indices = [np.where(pts_indice_prime == idx)[0][0] for idx in common_indices]
-    matched_t1 = si_q_theta_Rho_prime[t1_indices]
-    
-    return matched_t0, matched_t1, common_indices
-
-def coordinate_transform_T(T0, T1):
-    # T1 = T0 @ T
-    T_matrix = np.linalg.inv(T0) @ T1 
-    # x-axis oriented switched to y-axis oriented
-    T_matrix = T_z_90 @ T_matrix @ T_z_min90
-    # get transforamtion matrix
-    T_matrix = np.linalg.inv(T_matrix)
-    return T_matrix
-
-def coordinate_transform_Pose(Pose):
-    return (T_z_90 @ Pose @ T_z_min90)
-
-def coordinate_transform_pt(P):
-    return (R_z_90 @ P)
-
-def coordinate_transform(p0, p1, T0, T1):
-    p0 = coordinate_transform_pt(p0)
-    p1 = coordinate_transform_pt(p1)
-    T_matrix = coordinate_transform_T(T0, T1)
-    return p0, p1, T_matrix
-
-
+    ANP_METHOD = params['ANP_METHOD']
 
 if __name__ == "__main__":
 
     sonar_data_dir = str(lias_anp_dir) + DATA_PATH
-    reord_dir = str(lias_anp_dir) + "/record/anp"
+    reord_dir = str(lias_anp_dir) + "/record/" + ANP_METHOD
     reader = SonarDataReader(filepath = sonar_data_dir)
     reader.read_data()
     data = reader.get_data()
@@ -136,11 +48,13 @@ if __name__ == "__main__":
     record_folder = f"{reord_dir}/record{file_number + 1}"
     os.makedirs(record_folder, exist_ok=True)
 
-    anp_algorithm = AnPAlgorithmMatlab()
+    anp_algorithm = AnPAlgorithm(ANP_METHOD)
     
     # initialize
-    T0 = pose_to_transform_matrix(data[0]['pose'])
-    T1 = pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
+    T0 = ros_pose_to_transform_matrix(data[0]['pose'])
+    T1 = ros_pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
+    T0 = add_noise_to_pose(T0, rotation_noise_std=0.00001, translation_noise_std=0.0001)
+    T1 = add_noise_to_pose(T1, rotation_noise_std=0.00001, translation_noise_std=0.0001)
     
     start_index = 0
     theta_Rho0 = data[start_index]['si_q_theta_Rho']
@@ -157,7 +71,8 @@ if __name__ == "__main__":
     
     # Dictionary to store estimated points in world coordinate system
     P_dict = {}
-    reconstruction_error_distance_list = []
+    reconstruction_error_list = []
+    reconstruction_error_list_filtered = []
     
     ## TRI!! NEED TO TRANSFORM COORDINATE SYSTEM
     T0_tri = coordinate_transform_Pose(T0)
@@ -165,16 +80,20 @@ if __name__ == "__main__":
     T_matrix = np.linalg.inv(T1_tri) @ T0_tri
     for i in range(len(theta_Rho)):
         s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
-        
         # Transform back to sim coordinate system
         w_P = ( T0_tri @ np.hstack([s_P, 1]) )[:3]
-        w_P = R_z_90.T @ w_P 
-    
+        w_P = coordinate_transform_pt_back( w_P )
+
         key = common_indices[i]
-        P_dict[key] = w_P
-        reconstruction_error_distance = np.linalg.norm( w_P_gt[i] - w_P )
-        reconstruction_error_distance_list.append(reconstruction_error_distance)
-    print(sum(reconstruction_error_distance_list)/len(reconstruction_error_distance_list))   
+        difference = np.linalg.norm( w_P_gt[i] - w_P )
+        reconstruction_error_list.append(difference)
+        
+        if difference < RECONSTRUCTION_ERROR_THRESHOLD:
+            P_dict[key] = w_P
+            reconstruction_error_list_filtered.append(difference)
+    print(reconstruction_error_list)   
+    print(reconstruction_error_list_filtered)   
+    
     ## END TRI!! NEED TO TRANSFORM P_W back to original COORDINATE SYSTEM
     
     # 初始化空列表用于存储轨迹
@@ -214,8 +133,9 @@ if __name__ == "__main__":
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
         
-        t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w)
-        # t_s_cal, R_sw_cal = nonapp_algorithm.compute_t_R(q_si2, P_w)
+        R_SW = ros_pose_to_transform_matrix(entry['pose'])[0:3,0:3]
+        t_S = ros_pose_to_transform_matrix(entry['pose'])[0:3,3].reshape(-1,1)
+        t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w, R_true=R_SW, t_true=-R_SW.T@t_S, Var_noise=0)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
@@ -225,7 +145,7 @@ if __name__ == "__main__":
         # TRI
         T_matrix = np.linalg.inv(T2) @ T1
         
-        T2_gt = pose_to_transform_matrix(entry['pose'])
+        T2_gt = ros_pose_to_transform_matrix(entry['pose'])
         
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
         w_P_gt = entry['w_p']
@@ -252,7 +172,7 @@ if __name__ == "__main__":
                 if True:
                     # Transform back to sim coordinate system
                     w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                    w_P = R_z_90.T @ w_P 
+                    w_P = coordinate_transform_pt_back (w_P)
                     
                     difference = np.linalg.norm( w_P - w_P_gt[i] )
                     if difference < RECONSTRUCTION_ERROR_THRESHOLD:
@@ -265,7 +185,7 @@ if __name__ == "__main__":
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 # Transform back to sim coordinate system
                 w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                w_P = R_z_90.T @ w_P 
+                w_P = coordinate_transform_pt_back (w_P)
                 difference = np.linalg.norm( w_P - w_P_gt[i] )
 
         print("new_pts_num: ", new_pts_num, 
@@ -280,7 +200,7 @@ if __name__ == "__main__":
 
 
         # print(timestep)
-        T2_gt = pose_to_transform_matrix(entry['pose'])
+        T2_gt = ros_pose_to_transform_matrix(entry['pose'])
         # T2_gt = coordinate_transform_Pose(T2_gt)
         # print()
         # print(T2-T2_gt)
@@ -307,7 +227,8 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
-        pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        # cumulative_pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         # reconstrubtion_error_evaluation = sum(abs(x) for x in reconstrubtion_error_list) / len(reconstrubtion_error_list)
         reconstrubtion_error_evaluation = None
@@ -337,7 +258,7 @@ if __name__ == "__main__":
             file_name = f"{record_folder}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-            debug_file = record_folder + "/traj.csv"
+            debug_file = record_folder + "/atraj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
                 row = np.concatenate([T2.flatten(), T2_gt.flatten()])

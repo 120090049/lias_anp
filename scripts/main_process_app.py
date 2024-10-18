@@ -2,7 +2,7 @@
 import numpy as np
 import transforms3d
 
-from anp.anp_alg import AnPAlgorithmPython, AnPAlgorithmMatlab, NONAPPAlgorithm, APPAlgorithm
+from anp.anp_alg_old import AnPAlgorithmPython, AnPAlgorithmMatlab, NONAPPAlgorithm, APPAlgorithm
 
 from tri.tri import ANRS, GTRS, gradient_descent
 
@@ -28,7 +28,6 @@ with open(yaml_file_path, 'r') as file:
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
-    
 
 T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
 T_z_min90 = T_z_90.T
@@ -189,8 +188,6 @@ if __name__ == "__main__":
     ## General idea is we have T0 and T1, and we want to get T2 ##
     ##############################################################
     for timestep, entry in enumerate(data[start_index+2:], start=start_index+2):
-        if timestep > 93:
-            continue
         print(f"Timestep: {timestep}") 
         ############################
         ### ANP
@@ -341,10 +338,10 @@ if __name__ == "__main__":
             file_name = f"{record_folder}/time_{timestep}.png"
             plt.savefig(file_name)  # 你可以指定其他文件名和格式，如 'plot.jpg', 'plot.pdf', 等等  
             plt.close()  # 关闭图表窗口
-            debug_file = record_folder + "/traj.csv"
+            debug_file = record_folder + "/atraj.csv"
             with open(debug_file, 'a', newline='') as file:
                 writer = csv.writer(file)
-                row = np.concatenate([timestep, T2.flatten(), T2_gt.flatten()])
+                row = np.concatenate([T2.flatten(), T2_gt.flatten()])
                 writer.writerow(row)
                
         else:

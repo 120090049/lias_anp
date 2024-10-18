@@ -17,8 +17,10 @@ sonar_image:
   img_height: 500
 
 sonar_noise:
-  Rho_noise: 0.0005
-  theta_noise: 0.0002
+  Rho_noise: 0.00001
+  theta_noise: 0.00001
+  # Rho_noise: 0.0005
+  # theta_noise: 0.0002
   # Rho_noise: 0.005 
   # theta_noise: 0.001
 

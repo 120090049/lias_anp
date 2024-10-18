@@ -34,7 +34,7 @@ function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm(P_W,P_SI_Noise,R
     
   
     % 判断是否小于阈值
-    if norm(R_Noise_He_new - R_true, 'fro') > 0.01
+    if norm(R_Noise_He_new - R_true, 'fro') > 0.3
         r = r_2; 
         t_S_Noise_He = inv(W_Noise_He' * W_Noise_He) * W_Noise_He' * H_Noise_He * r_1;
         R_Noise_He = zeros(3, 3);
@@ -48,6 +48,7 @@ function [R_Noise_He_new, t_S_Noise_He] = Wang_nonapp_algorithm(P_W,P_SI_Noise,R
     t_S_Noise_He = [t_S_Noise_He; t_z];
 
     t_S_Noise_He = -R_Noise_He_new*t_S_Noise_He;
+    R_Noise_He_new = R_Noise_He_new';
 
 end
 
