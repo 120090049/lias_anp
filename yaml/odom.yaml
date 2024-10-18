@@ -21,7 +21,7 @@ ERROR_THRESHOLD_BREAK: 0.5
 
 # data_path: "/data/Rho_noise0.00001theta_noise0.00001/square/sonar_data_noisy.csv"
 # data_path: "/data/Rho_noise0.00001theta_noise0.00001/circle/sonar_data_noisy.csv"
-data_path: "/data/orientation_along_tangent_direction/Rho_noise0.00001theta_noise0.00001/circle/sonar_data.csv"
+data_path: "/data/orientation_along_tangent_direction/Rho_noise0.00001theta_noise0.00001/circle/sonar_data_noisy.csv"
 
 # data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/square_all_noisy/sonar_data_noisy.csv"
 # data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/circle_all_noisy/sonar_data_noisy.csv"
