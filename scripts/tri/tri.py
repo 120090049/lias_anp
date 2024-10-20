@@ -71,8 +71,6 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
 
     A = np.vstack([a1, a2, a3])
     b = np.array([b1, b2, b3])
-    print(A)
-    print(b)
 
     determinant = np.linalg.det(A)
     # if abs(determinant) > DETERMINANT_THRESHOLD:

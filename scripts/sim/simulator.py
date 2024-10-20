@@ -13,7 +13,6 @@ import random
 random.seed(2)
 import rospy
 from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseArray, Pose, Point, Quaternion
 from nav_msgs.msg import Path
 import copy
 
@@ -282,11 +281,6 @@ class Anp_sim:
         
         self.w_p = points_in_fov
         self.s_p = points_in_sonar_frame
-        # self.si_q_xy = np.array(si_q_xy)
-        # self.si_q_theta_Rho = np.array(si_q_theta_Rho)
-        
-        # print(self.si_q_theta_Rho[0] - [-np.arctan(self.s_p[0][1]/self.s_p[0][0]), np.sqrt( np.sum(np.array(self.s_p[0])**2 ) )])
-        # print(np.sum(np.array(self.s_p[0]))**2)
         
         # Publish SonarData with pose
         sonar_data_msg = SonarData()

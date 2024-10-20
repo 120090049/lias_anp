@@ -11,8 +11,8 @@ class TrajectoryGenerator:
         :param rate: 轨迹速度
         :param delta_t: 时间步长
         """
-        self.a = 3.0  # X轴振幅
-        self.b = 3.0  # Y轴振幅
+        self.a = 2.0  # X轴振幅
+        self.b = 2.0  # Y轴振幅
         self.c = 0.5  # Z轴振幅
         self.rate = rate
         self.delta_t = 1
@@ -48,22 +48,25 @@ class TrajectoryGenerator:
         # 计算下一时刻的位置，用于计算切线方向
         x_next, y_next, z_next = self.parametric_function(t + self.delta_t)
         
-        # 计算切线方向
-        dx = x_next - x
-        dy = y_next - y
-        dz = z_next - z
+        # # 计算切线方向
+        # dx = x_next - x
+        # dy = y_next - y
+        # dz = z_next - z
         
-        # 归一化切线向量
-        magnitude = np.sqrt(dx**2 + dy**2 + dz**2)
-        tangent_x = dx / magnitude
-        tangent_y = dy / magnitude
-        tangent_z = dz / magnitude
+        # # 归一化切线向量
+        # magnitude = np.sqrt(dx**2 + dy**2 + dz**2)
+        # tangent_x = dx / magnitude
+        # tangent_y = dy / magnitude
+        # tangent_z = dz / magnitude
 
-        # 计算 roll, pitch, yaw
-        roll = 0  # 假设 roll 为 0
-        pitch = -np.arctan2(tangent_z, np.sqrt(tangent_x**2 + tangent_y**2))  # 计算俯仰角 pitch
-        yaw = np.arctan2(tangent_y, tangent_x)  # 计算航向角 yaw
-        yaw = 0
+        # # 计算 roll, pitch, yaw
+        # roll = 0  # 假设 roll 为 0
+        # pitch = -np.arctan2(tangent_z, np.sqrt(tangent_x**2 + tangent_y**2))  # 计算俯仰角 pitch
+        # yaw = np.arctan2(tangent_y, tangent_x)  # 计算航向角 yaw
+        roll = 0.2 * np.sin(0.02 * t)
+        pitch = 0.1 * np.cos(0.02 * t)
+        yaw = 0.2 * np.sin(0.02 * t)
+        
         return x, y, z, roll, pitch, yaw
 
     def publish_pose(self):

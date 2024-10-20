@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import matplotlib.pyplot as plt
 import numpy as np
+step_size = 1
 
 def average_lists_numpy(*lists):
     # 将所有列表转换为 NumPy 数组
@@ -10,29 +11,40 @@ def average_lists_numpy(*lists):
     return np.mean(arrays, axis=0)
 
 
-def plot_two_lists(list1, list2, title1="Mean", title2="Variance"):
+def plot_two_lists(list1, list2, value1, value2, title1="Mean", title2="Variance"):
     # 创建两个子图
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
-    
+    x = np.arange(2, 2 + len(list1))
     # 绘制第一个列表的折线图
-    ax1.plot(list1, marker='o')
+    ax1.plot(x, list1, marker='o')
+    ax1.axhline(y=value1, color='r', linestyle='--', label=f'y={value1}')
+
     ax1.set_title(title1)
     ax1.set_xlabel('Index')
     ax1.set_ylabel('Value')
     ax1.grid(True)
+    if max(list1)>1:
+        ax1.set_ylim(0, 1)
     
     # 绘制第二个列表的折线图
-    ax2.plot(list2, marker='o', color='red')
+    ax2.plot(x, list2, marker='o', color='red')
+    ax2.axhline(y=value2, color='r', linestyle='--', label=f'y={value2}')
     ax2.set_title(title2)
     ax2.set_xlabel('Index')
     ax2.set_ylabel('Value')
     ax2.grid(True)
+    if max(list2)>2:
+        ax2.set_ylim(0, 2)
     
     # 调整子图之间的间距
     plt.tight_layout()
     
     # 显示图形
     plt.show()
+
+def calculate_mean_variance_numpy(numbers):
+    arr = np.array(numbers)
+    return np.mean(arr), np.var(arr)
 
 import matplotlib.pyplot as plt
 import sys
@@ -68,11 +80,13 @@ reader.read_data()
 data = reader.get_data()
 
 from functools import reduce
-def intersect_multiple_arrays(array_list):
-    array_lists = [list(arr) for arr in array_list]
-    return list(reduce(np.intersect1d, array_lists))
 
 def get_match_pairs(theta_Rhos_across_times, pts_indices_across_times):
+    
+    def intersect_multiple_arrays(array_list):
+        array_lists = [list(arr) for arr in array_list]
+        return list(reduce(np.intersect1d, array_lists))
+    
     common_indices = intersect_multiple_arrays(pts_indices_across_times)
     matched_theta_Rho_across_times = [] 
     for pts_indicei, theta_Rhoi in zip(pts_indices_across_times, theta_Rhos_across_times):
@@ -87,31 +101,34 @@ def get_match_pairs(theta_Rhos_across_times, pts_indices_across_times):
 mean_list = []
 variance_list = []
 
-for experiment_times in range(50):
+mean_ANRS_list = []
+var_ANRS_list = []
+for experiment_times in range(30):
     means = []
     variances = []
 
-    theta_Rhos_across_times = []
-    pts_indices_across_times = []
+    
     T_tri_accross_times = []
-    for INITIALIZE_FRAMES in range(2, 12):
+    for i in range(20):
+        Ti_tri = coordinate_transform_Pose(ros_pose_to_transform_matrix(data[step_size*i]['pose']))
+        Ti_tri = add_noise_to_pose(Ti_tri, rotation_noise_std=0.0001, translation_noise_std=0.0005)
+        T_tri_accross_times.append(Ti_tri)
+    
+    
+    for num in range(2, 12):
+        INITIALIZE_FRAMES = num
+        theta_Rhos_across_times = []
+        pts_indices_across_times = []
         for i in range(INITIALIZE_FRAMES):
-            Ti_tri = coordinate_transform_Pose(ros_pose_to_transform_matrix(data[i]['pose']))
-            Ti_tri = add_noise_to_pose(Ti_tri, rotation_noise_std=0.0001, translation_noise_std=0.0001)
-            theta_Rhoi = data[i]['si_q_theta_Rho']
-            pts_indicei = data[i]['pts_indice']
-            T_tri_accross_times.append(Ti_tri)
+            theta_Rhoi = data[step_size*i]['si_q_theta_Rho']
+            pts_indicei = data[step_size*i]['pts_indice']
             theta_Rhos_across_times.append(theta_Rhoi)
             pts_indices_across_times.append(pts_indicei)
 
             
         matched_theta_Rho_across_times, common_indices = get_match_pairs(theta_Rhos_across_times, pts_indices_across_times)
-        points_num = len(common_indices)
-        # Now we have T_tri_accross_times and matched_theta_Rho_across_times
-
-        # We need to iterate through points
         matched_theta_Rho_across_times = np.array(matched_theta_Rho_across_times)
-
+        points_num = len(common_indices)
         ############################################################
         ## find gt ##
         theta_Rho0 = data[0]['si_q_theta_Rho']
@@ -119,11 +136,34 @@ for experiment_times in range(50):
         w_P_gt = data[0]['w_p']
         w_P_gt_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[w_P_gt_indices] 
+        ##################################################### 
+        # ANRS ##
+        if INITIALIZE_FRAMES == step_size+1:
+            T0 = T_tri_accross_times[0]
+            T1 = T_tri_accross_times[step_size]
+            record_ANRS = []
+            for point_index in range(points_num):
+                theta_Rhos = matched_theta_Rho_across_times[:,point_index,:]
+                T_matrix = np.linalg.inv(T1) @ T0
+                theta_Rho = theta_Rhos[0]
+                theta_Rho_prime = theta_Rhos[step_size]
+                s_P_cmp, least_square = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
+                w_P_cmp = ( T0 @ np.hstack([s_P_cmp, 1]) )[:3]
+                w_P_cmp = coordinate_transform_pt_back( w_P_cmp )
+                difference_ANRS = np.linalg.norm( w_P_cmp - w_P_gt[point_index] )
+                record_ANRS.append(difference_ANRS)
+            mean_ANRS, var_ANRS = calculate_mean_variance_numpy(record_ANRS)
+            mean_ANRS_list.append(mean_ANRS)
+            var_ANRS_list.append(var_ANRS)
         ############################################################
 
-        # for each points
+        # Now we have T_tri_accross_times and matched_theta_Rho_across_times
+        # We need to iterate through points
+        
         record = []
-        record_ANRS = []
+        ##################################################### 
+        # for each points
+        ##################################################### 
         for point_index in range(points_num):
             theta_Rhos = matched_theta_Rho_across_times[:,point_index,:]
             
@@ -131,21 +171,6 @@ for experiment_times in range(50):
             b_stacked = np.empty((0,))
             A_list = []
             b_list = []
-
-
-            ##################################################### 
-            T0 = T_tri_accross_times[0]
-            T1 = T_tri_accross_times[1]
-            T_matrix = np.linalg.inv(T1) @ T0
-            theta_Rho = theta_Rhos[0]
-            theta_Rho_prime = theta_Rhos[1]
-            s_P_cmp, least_square = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
-            w_P_cmp = ( T0 @ np.hstack([s_P_cmp, 1]) )[:3]
-            w_P_cmp = coordinate_transform_pt_back( w_P_cmp )
-            difference_ANRS = np.linalg.norm( w_P - w_P_gt[point_index] )
-            record_ANRS.append(difference_ANRS)
-            
-            ##################################################### 
 
             for i in range(INITIALIZE_FRAMES-1):
                 T0 = T_tri_accross_times[i]
@@ -194,10 +219,6 @@ for experiment_times in range(50):
             record.append(difference)
 
 
-        def calculate_mean_variance_numpy(numbers):
-            arr = np.array(numbers)
-            return np.mean(arr), np.var(arr)
-
         mean, variance = calculate_mean_variance_numpy(record)
 
         means.append(mean)
@@ -206,11 +227,11 @@ for experiment_times in range(50):
     mean_list.append(means)
     variance_list.append(variances)
 
-    plot_two_lists(means, variances)
+    # plot_two_lists(means, variances, mean_ANRS)
 
 mean_data = np.mean([np.array(l) for l in mean_list], axis=0)
 variance_data = np.mean([np.array(l) for l in variance_list], axis=0)
     
 
 
-plot_two_lists(mean_data, variance_data)
+plot_two_lists(mean_data, variance_data, np.mean(np.array(mean_ANRS_list)), np.mean(np.array(var_ANRS_list)))
