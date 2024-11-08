@@ -8,19 +8,24 @@ script_path = Path(__file__).resolve()
 script_dir = script_path.parent
 script_dir = str(script_dir) + "/"
 
+# Append the root dir
+import sys, roslib, os
+lias_anp_dir = roslib.packages.get_pkg_dir('lias_anp')
+scripts_dir = os.path.abspath(os.path.join(lias_anp_dir, 'scripts/anp'))
+sys.path.append(scripts_dir)
+
+from App_Algorithm_2 import App_Algorithm_2
+from Nonapp_Algorithm_2 import Nonapp_Algorithm_2
+from Combine_CIO_2 import Combine_CIO_2
+from ToCAnP import ToCAnP
+from Calculate_CRLB import Calculate_CRLB
+
 class AnPAlgorithm:
     def __init__(self, method = None):
         # t_s, R_sw
         self.R_sw = None
         self.t_s = None
         self.method = method
-        self.use_matlab = False
-        if self.method in ["anp", "app", "nonapp"]:
-            self.use_matlab = True
-            # 启动 MATLAB 引擎
-            self.eng = matlab.engine.start_matlab()
-            self.eng.addpath(script_dir)
-            print("Start matlab engine, ANP module successfully initialized!")
 
     @staticmethod
     def orthogonalize(r1_Noise, r2_Noise):
@@ -59,127 +64,20 @@ class AnPAlgorithm:
                           (R[1, 0] - R[0, 1])]) / (2 * np.sin(theta))
         return k, theta
     
-    def compute_t_R(self, P_SI, P_W, R_true=None, t_true=None, Var_noise=0):
-        if self.use_matlab:
-            # 将 numpy 数组转换为 matlab.double 类型
-            P_SI_matlab = matlab.double(P_SI.tolist())
-            P_W_matlab = matlab.double(P_W.tolist())
-            R_true_matlab = matlab.double(R_true.tolist())
-            t_true_matlab = matlab.double(t_true.tolist())
-            
-            if self.method == "anp":
-                print("anp")
-                R_sw, t_s = self.eng.compute_t_R(P_W_matlab, P_SI_matlab, 0, 0, nargout=2)
-            elif self.method == "app":
-                t_true = t_true.reshape(-1,1)
-                R_sw, t_s = self.eng.Wang_app_algorithm(P_W_matlab, P_SI_matlab, t_true_matlab, Var_noise, nargout=2)
-            elif self.method == "nonapp":
-                R_sw, t_s = self.eng.Wang_nonapp_algorithm(P_W_matlab, P_SI_matlab, R_true_matlab, nargout=2)
-                
-            self.R_sw = np.array(R_sw).T
-            self.t_s = np.array(t_s)
-            
-        else:
-            num = P_SI.shape[1]
-            d_Noise = np.zeros(num)
-            cos_theta_Noise = np.zeros(num)
-            sin_theta_Noise = np.zeros(num)
-            tan_theta_Noise = np.zeros(num)
-            theta_N = np.zeros(num)
-
-            for i in range(num):
-                d_Noise[i] = np.linalg.norm(P_SI[:, i])
-                cos_theta_Noise[i] = P_SI[0, i] / d_Noise[i]
-                sin_theta_Noise[i] = P_SI[1, i] / d_Noise[i]
-                tan_theta_Noise[i] = sin_theta_Noise[i] / cos_theta_Noise[i]
-                theta_N[i] = np.arctan(tan_theta_Noise[i])
-
-            count = 0
-            Delta_xyz_Noise_my = []
-            Delta_d_Noise_my = []
-
-            for i in range(num):
-                for j in range(i + 1, num):
-                    count += 1
-                    Delta_xyz_Noise_my.append(2 * (P_W[:, j] - P_W[:, i]))
-                    Delta_d_Noise_my.append(d_Noise[i]**2 - d_Noise[j]**2 - np.linalg.norm(P_W[:, i])**2 + np.linalg.norm(P_W[:, j])**2)
-
-            Delta_xyz_Noise_my = np.array(Delta_xyz_Noise_my)
-            Delta_d_Noise_my = np.array(Delta_d_Noise_my).reshape(-1, 1)
-            t_W_Noise_my = np.linalg.inv(Delta_xyz_Noise_my.T @ Delta_xyz_Noise_my) @ Delta_xyz_Noise_my.T @ Delta_d_Noise_my
-
-            A_Noise_my = np.zeros((num, 6))
-
-            for i in range(num):
-                A_Noise_my[i, 0] = tan_theta_Noise[i] * (P_W[0, i] - t_W_Noise_my[0])
-                A_Noise_my[i, 1] = tan_theta_Noise[i] * (P_W[1, i] - t_W_Noise_my[1])
-                A_Noise_my[i, 2] = tan_theta_Noise[i] * (P_W[2, i] - t_W_Noise_my[2])
-                A_Noise_my[i, 3] = -(P_W[0, i] - t_W_Noise_my[0])
-                A_Noise_my[i, 4] = -(P_W[1, i] - t_W_Noise_my[1])
-                A_Noise_my[i, 5] = -(P_W[2, i] - t_W_Noise_my[2])
-
-            U_Noise_my, S_Noise_my, V_Noise_my = np.linalg.svd(A_Noise_my)
-            r1_Noise_my = np.sqrt(2) * V_Noise_my.T[:3, 5]
-            r2_Noise_my = np.sqrt(2) * V_Noise_my.T[3:, 5]
-
-            if abs(np.dot(r1_Noise_my, r2_Noise_my)) <= 1e-4:
-                # print('向量 r1_Noise_my 和向量 r2_Noise_my 是正交的。')
-                r3_Noise_my = np.cross(r1_Noise_my, r2_Noise_my)
-            else:
-                # print('向量 r1_Noise_my 和向量 r2_Noise_my 不是正交的。')
-                r1_Noise_my, r2_Noise_my = self.orthogonalize(r1_Noise_my, r2_Noise_my)
-                # if abs(np.dot(r1_Noise_my, r2_Noise_my)) <= 1e-4:
-                #     print('向量 r1_Noise_my_new 和向量 r2_Noise_my_new 是正交的。')
-                # else:
-                #     print('向量 r1_Noise_my_new 和向量 r2_Noise_my_new 不是正交的。')
-                r3_Noise_my = np.cross(r1_Noise_my, r2_Noise_my)
-                r1_Noise_my /= np.linalg.norm(r1_Noise_my)
-                r2_Noise_my /= np.linalg.norm(r2_Noise_my)
-                r3_Noise_my /= np.linalg.norm(r3_Noise_my)
-
-            R_Noise_my_1 = np.vstack([r1_Noise_my, r2_Noise_my, r3_Noise_my])
-            R_Noise_my_2 = np.vstack([r1_Noise_my, r2_Noise_my, -r3_Noise_my])
-            R_Noise_my_3 = np.vstack([-r1_Noise_my, -r2_Noise_my, r3_Noise_my])
-            R_Noise_my_4 = np.vstack([-r1_Noise_my, -r2_Noise_my, -r3_Noise_my])
-            
-            
-            # 根据 R_sw 估计声呐坐标系中的坐标 P_S
-            P_S_Estimate_my_1 = R_Noise_my_1 @ (P_W - t_W_Noise_my)
-            P_S_Estimate_my_2 = R_Noise_my_2 @ (P_W - t_W_Noise_my)
-            P_S_Estimate_my_3 = R_Noise_my_3 @ (P_W - t_W_Noise_my)
-            P_S_Estimate_my_4 = R_Noise_my_4 @ (P_W - t_W_Noise_my)
-
-            # 计算估计的 cos(theta)
-            cos_theta_vatify_1 = P_S_Estimate_my_1[0, 0] / np.sqrt(P_S_Estimate_my_1[0, 0]**2 + P_S_Estimate_my_1[1, 0]**2)
-            cos_theta_vatify_2 = P_S_Estimate_my_2[0, 0] / np.sqrt(P_S_Estimate_my_2[0, 0]**2 + P_S_Estimate_my_2[1, 0]**2)
-            cos_theta_vatify_3 = P_S_Estimate_my_3[0, 0] / np.sqrt(P_S_Estimate_my_3[0, 0]**2 + P_S_Estimate_my_3[1, 0]**2)
-            cos_theta_vatify_4 = P_S_Estimate_my_4[0, 0] / np.sqrt(P_S_Estimate_my_4[0, 0]**2 + P_S_Estimate_my_4[1, 0]**2)
-
-            # 计算真值 cos(theta)
-            cos_theta_true = P_SI[0, 0] / np.sqrt(P_SI[0, 0]**2 + P_SI[1, 0]**2)
-
-            # 选择最优的 R_sw
-            if cos_theta_vatify_1 * cos_theta_true > 0:
-                R_sw = R_Noise_my_1
-            elif cos_theta_vatify_2 * cos_theta_true > 0:
-                R_sw = R_Noise_my_2
-            elif cos_theta_vatify_3 * cos_theta_true > 0:
-                R_sw = R_Noise_my_3
-            elif cos_theta_vatify_4 * cos_theta_true > 0:
-                R_sw = R_Noise_my_4
-            else:
-                raise ValueError("No valid R_sw found")
-
-            self.t_s = t_W_Noise_my
-            
-            T = np.eye(4)
-            T[:3, :3] = R_sw  # 将旋转矩阵 R 放入左上角 3x3 部分
-            T[:3, 3] = t_W_Noise_my.reshape(-1)
-            T = np.linalg.inv(T) 
-            R_sw = T[:3, :3] 
-            self.R_sw = R_sw
-            
-        return self.t_s, self.R_sw
+# APP(p_w, p_si_noise, phi_max, R_true)
+    def compute_R_t(self, P_W, P_SI, phi_max=None, R_true=None):
+        
+        if self.method == "ToCAnP":
+            R_sw, t_s = ToCAnP(P_W, P_SI)
+        elif self.method == "app":
+            R_sw, t_s = App_Algorithm_2(P_W, P_SI, phi_max)
+        elif self.method == "nonapp":
+            R_sw, t_s = Nonapp_Algorithm_2(P_W, P_SI, phi_max, R_true)
+        elif self.method == "CombineCIO":
+            R_sw, t_s = Combine_CIO_2(P_W, P_SI, phi_max, R_true)
+        self.t_s, self.R_sw = t_s, R_sw
+        
+        return self.R_sw, self.t_s
 
     def estimate_accuracy(self, R_sw_gt):
         """

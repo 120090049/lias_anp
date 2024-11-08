@@ -23,13 +23,16 @@ from utils.coordinate_system_transform import coordinate_transform_Pose, coordin
 from utils.transformation_matrix_add_noise import add_noise_to_pose
 
 import yaml
-yaml_file_path = os.path.join(lias_anp_dir, 'yaml/odom.yaml')
-with open(yaml_file_path, 'r') as file:
+with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
     ANP_METHOD = params['ANP_METHOD']
+    
+with open(os.path.join(lias_anp_dir, 'yaml/sim_env.yaml'), 'r') as file:
+    params = yaml.safe_load(file)
+    PHI_MAX = int(params['sonar_attribute']['fov_vertical']) * np.pi / 180
 
 if __name__ == "__main__":
 
@@ -57,7 +60,7 @@ if __name__ == "__main__":
     ###############################################
     ## TRI!! NEED TO TRANSFORM COORDINATE SYSTEM
     ###############################################
-    ANRS_initialize = True
+    ANRS_initialize = False
     if True:
         # initialize
         T0 = ros_pose_to_transform_matrix(data[0]['pose'])
@@ -198,7 +201,7 @@ if __name__ == "__main__":
             record.append(difference)
         print(np.mean(np.array(record)), np.var(np.array(record)))
         print(len(record), len(record_filtered))
-
+    input()
     ###############################################
     ## END TRI!! NEED TO TRANSFORM P_W back to original COORDINATE SYSTEM
     ###############################################
@@ -247,7 +250,8 @@ if __name__ == "__main__":
         
         R_SW = ros_pose_to_transform_matrix(entry['pose'])[0:3,0:3]
         t_S = ros_pose_to_transform_matrix(entry['pose'])[0:3,3].reshape(-1,1)
-        t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w, R_true=R_SW, t_true=-R_SW.T@t_S, Var_noise=0)
+        R_sw_cal, t_s_cal = anp_algorithm.compute_R_t(P_w, q_si2, phi_max=PHI_MAX, R_true=R_SW)
+        # t_s_cal, R_sw_cal = anp_algorithm.compute_t_R(q_si2, P_w, R_true=R_SW, t_true=-R_SW.T@t_S, Var_noise=0)
         T2 = np.eye(4)  # 创建一个 4x4 的单位矩阵
         T2[:3, :3] = R_sw_cal  # 将 R 赋值给 T 的左上 3x3 子矩阵
         T2[:3, 3] = t_s_cal.flatten()  # 将 t 赋值给 T 的前 3 行第 4 列
@@ -378,6 +382,7 @@ if __name__ == "__main__":
                 writer.writerow(row)
                
         else:
+            plt.title(ANP_METHOD)
             plt.show(block=False)
             if timestep % 15 == 0:
                 plt.pause(1)  # 暂停5秒
