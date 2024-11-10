@@ -89,7 +89,8 @@ class TrajectoryGenerator:
                 yaw = -(1.5*np.pi + angle)
 
         z = 0.5 + 0.1 * np.sin(2 * np.pi * t / self.period)
-        roll = 0.1 * np.sin(2 * np.pi * t / self.period)
+        # roll = 0.1 * np.sin(2 * np.pi * t / self.period)
+        roll = 1 * t
         pitch = 0.1 * np.cos(2 * np.pi * t / self.period)
         yaw = -np.pi/2
         return x, y, z, roll, pitch, yaw

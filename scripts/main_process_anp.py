@@ -77,8 +77,8 @@ if __name__ == "__main__":
         
         # Points ground truth
         w_P_gt = data[0]['w_p']
-        w_P_gt_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
-        w_P_gt = w_P_gt[w_P_gt_indices] 
+        temp_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
+        w_P_gt = w_P_gt[temp_indices] 
         
         T0_tri = coordinate_transform_Pose(T0)
         T1_tri = coordinate_transform_Pose(T1)
@@ -139,8 +139,8 @@ if __name__ == "__main__":
         ## find gt ##
         w_P_gt = data[0]['w_p']
         pts_indice0 = data[0]['pts_indice']
-        w_P_gt_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
-        w_P_gt = w_P_gt[w_P_gt_indices] 
+        temp_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
+        w_P_gt = w_P_gt[temp_indices] 
         
         # Now we have T_tri_accross_times and matched_theta_Rho_across_times
         # We need to iterate through points
@@ -256,7 +256,9 @@ if __name__ == "__main__":
     ##############################################################
     ## General idea is we have T0 and T1, and we want to get T2 ##
     ##############################################################
-        
+    difference_list = []
+    reconstruction_error_list = []
+    
     for timestep, entry in enumerate(data[start_index:], start=start_index):
         print(f"Timestep: {timestep}") 
         ############################
@@ -300,9 +302,10 @@ if __name__ == "__main__":
         
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho1, pts_indice1, theta_Rho2, pts_indice2)
         w_P_gt = entry['w_p']
-        w_P_gt_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
-        w_P_gt = w_P_gt[w_P_gt_indices] 
-        reconstruction_error_list = []
+        temp_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
+        w_P_gt = w_P_gt[temp_indices] 
+        
+        
         
         determinant_list = []
         
@@ -320,41 +323,49 @@ if __name__ == "__main__":
                 new_pts_num+=1
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 determinant_list.append(determinant)
-                if True:
-                    # Transform back to sim coordinate system
-                    w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                    w_P = coordinate_transform_pt_back (w_P)
-                    
-                    difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < RECONSTRUCTION_ERROR_THRESHOLD:
-                        new_pts_valid_num+=1
-                        P_dict[key] = w_P
-                        reconstruction_error_list.append(difference)
-                # s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix, tol = 0.01)
-                # if good_reconstruct:
-            else:
-                s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
+
                 # Transform back to sim coordinate system
                 w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
                 w_P = coordinate_transform_pt_back (w_P)
-                difference = np.linalg.norm( w_P - w_P_gt[i] )
+                
+                
+                theta, R = -theta_Rho[i][0], theta_Rho[i][1]
+                theta_prime, R_prime = -theta_Rho_prime[i][0], theta_Rho_prime[i][1]
+                ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
+                recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
+                
+                difference = np.linalg.norm( w_P_gt[i] - w_P )
+                if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
+                    reconstruction_error_list.append(recon_error)
+                    new_pts_valid_num+=1
+                    key = common_indices[i]
+                    P_dict[key] = w_P
 
-        print("new_pts_num: ", new_pts_num, 
-            "new_pts_valid_num:", new_pts_valid_num, 
-            "reconstruction_error_list maximum error:",\
-            max(reconstruction_error_list) if reconstruction_error_list else "empty")
+                    if difference >10:
+                        print()
+                    difference_list.append(difference)
+                
+                    
+        print(" ".join("{:5.2f}".format(x) for x in difference_list))
+        print(" ".join("{:5.2f}".format(x) for x in reconstruction_error_list))
             
         theta_Rho1 = theta_Rho2
         pts_indice1 = pts_indice2
-        
         T1 = T2
-
-
-        # print(timestep)
+        
+        # cumulative_pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
+        print("new_pts_num: ", new_pts_num, "new_pts_valid_num:", new_pts_valid_num, "Difference list: ", difference_list)
+        if len(difference_list):
+            print("max: ", np.max(difference_list), "mean: ", np.mean(difference_list) )
+        pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
+        # determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
+        print(f'\rPose_estimation_error: {pose_estimation_error}')
+        print()
+        
+        #################################################################
+        ## Visualization work
+        #################################################################
         T2_gt = ros_pose_to_transform_matrix(entry['pose'])
-        # T2_gt = coordinate_transform_Pose(T2_gt)
-        # print()
-        # print(T2-T2_gt)
         # 提取x和y坐标（即矩阵的第1和第2列的第4个元素）
         real_poses_x.append(T2_gt[0, 3])
         real_poses_y.append(T2_gt[1, 3])
@@ -378,12 +389,6 @@ if __name__ == "__main__":
         ax.legend()
         ax.grid(True)
 
-        # cumulative_pose_estimation_error = np.linalg.norm(np.array([real_poses_x, real_poses_y, real_poses_z]) - np.array([estimated_poses_x, estimated_poses_y, estimated_poses_z]))
-        pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
-        determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
-        # reconstrubtion_error_evaluation = sum(abs(x) for x in reconstruction_error_list) / len(reconstruction_error_list)
-        reconstrubtion_error_evaluation = None
-        print(f'\rPose_estimation_error: {pose_estimation_error}, reconstrubtion_error_evaluation: {reconstrubtion_error_evaluation}, determinant_evaluation: {determinant_evaluation}')
         if RECORD:
             if timestep == len(data) - 1:
                 n_points = len(real_poses_x)
