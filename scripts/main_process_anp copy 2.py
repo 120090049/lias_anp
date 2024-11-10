@@ -320,18 +320,31 @@ if __name__ == "__main__":
                 new_pts_num+=1
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 determinant_list.append(determinant)
-                if True:
-                    # Transform back to sim coordinate system
-                    w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                    w_P = coordinate_transform_pt_back (w_P)
-                    
-                    difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < RECONSTRUCTION_ERROR_THRESHOLD:
-                        new_pts_valid_num+=1
-                        P_dict[key] = w_P
-                        reconstruction_error_list.append(difference)
-                # s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix, tol = 0.01)
-                # if good_reconstruct:
+                
+                # Transform back to sim coordinate system
+                w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
+                w_P = coordinate_transform_pt_back (w_P)
+                
+                # difference = np.linalg.norm( w_P - w_P_gt[i] )
+                # if difference < RECONSTRUCTION_ERROR_THRESHOLD:
+                #     new_pts_valid_num+=1
+                #     P_dict[key] = w_P
+                #     reconstruction_error_list.append(difference)
+                        
+                theta, R = -theta_Rho[i][0], theta_Rho[i][1]
+                theta_prime, R_prime = -theta_Rho_prime[i][0], theta_Rho_prime[i][1]
+                ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
+        
+                difference = np.linalg.norm( w_P_gt[i] - w_P )
+                difference_list.append(difference)
+                recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
+                reconstruction_error_list.append(recon_error)
+                
+                if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
+                    key = common_indices[i]
+                    P_dict_0[key] = w_P
+                    reconstruction_error_list_filtered.append(recon_error)
+                
             else:
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 # Transform back to sim coordinate system

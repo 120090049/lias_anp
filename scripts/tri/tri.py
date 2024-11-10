@@ -86,10 +86,10 @@ def ANRS(T_matrix, theta_Rho, theta_Rho_prime):
     
 
     # 计算最小二乘解 x = (A^T A)^(-1) A^T b
-    least_square = np.linalg.inv(A.T @ A) @ (A.T @ b)
+    # least_square = np.linalg.inv(A.T @ A) @ (A.T @ b)
     
-    # return P_tilde_prime, determinant 
-    return P_tilde_prime, least_square 
+    return P_tilde_prime, determinant 
+    # return P_tilde_prime, least_square 
 
 def GTRS_old(T_matrix, theta_Rho, theta_Rho_prime):
  
@@ -341,6 +341,31 @@ def GTRS(T_matrix, theta_Rho, theta_Rho_prime):
     
     return x.reshape(-1), determinant
 
+def reconstrunction_error(P, ps, ps_prime, T_matrix):
+    
+    def project_to_2d(P):
+        X, Y, Z = P
+        theta = np.arctan2(X, Y)
+        d = np.sqrt(X**2 + Y**2 + Z**2)
+        x_s = d * np.sin(theta)
+        y_s = d * np.cos(theta)
+        return np.array([x_s, y_s])
+    
+    R = T_matrix[:3, :3]
+    t = T_matrix[:3, 3]
+    # 投影点
+    ps_hat = project_to_2d(P)
+    P_prime = R @ P + t
+    ps_prime_hat = project_to_2d(P_prime)
+    
+    # 计算误差
+    error_ps = ps - ps_hat
+    error_ps_prime = ps_prime - ps_prime_hat
+    
+    # 计算加权误差
+    error = np.sum(error_ps**2) + np.sum(error_ps_prime**2)
+    return error
+
 # 定义梯度下降法进行优化
 def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate=0.01, max_iter=1000, tol=1e-3):
     
@@ -408,55 +433,60 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
 
 if __name__ == "__main__":
 
+    T_matrix = np.array([[ 9.99999308e-01, -7.69241812e-06, -1.17671622e-03,
+         2.35407061e-02],
+       [ 7.92245717e-06,  9.99999981e-01,  1.95487843e-04,
+        -3.81230491e-03],
+       [ 1.17671469e-03, -1.95497030e-04,  9.99999289e-01,
+        -1.42558546e-03],
+       [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
+         1.00000000e+00]])
+    theta_Rho = np.array([0.38724926, 3.48554063])
+    theta_Rho_prime = np.array([0.38127652, 3.47328043])
 
-    # theta_Rho = np.array([-0.8427304625511169, 2.9157803058624268]) 
-    # theta_Rho_prime = np.array([0.10338770598173141, 1.4225620031356812]) 
-    # Pose0 =  np.array([[0.9947831471329273, 0.10201220603589002, 0.0, -0.13595595336837749], [-0.10201220603589002, 0.9947831471329273, -0.0, -1.9524370759126866], [-0.0, 0.0, 1.0, -0.3570108264917502], [0.0, 0.0, 0.0, 1.0]])
-    # Pose1 =  np.array([[0.8676190607260436, -0.49722948973774467, 0.0, 0.7461405519015483], [0.49722948973774467, 0.8676190607260436, 0.0, -0.5554558458716767], [0.0, 0.0, 1.0, -0.37813731018453933], [0.0, 0.0, 0.0, 1.0]])
-    # P0 = np.array([1.92564058303833, 2.1601450443267822, 0.3570108413696289])
-    # P1 = np.array([1.3640613555908203, -0.1415318101644516, 0.3781373202800751])
-
-    # P0, P1, T_matrix = coordinate_transform(P0, P1, Pose0, Pose1)
-
-    # Change yaw and z
+    P0 = np.array([ 3.62198019, -1.22308326,  0.09597907])
     
-    # Normal
-    P0 = np.array([2, 0, 0])
-    T_matrix = np.array([
-        [0.62866193, -0.77767871, 0.0, -0.20956837],
-        [0.77767871, 0.62866193, 0.0, 0.977794],
-        [0.0, 0.0, 1.0, -0.62866193],
-        [0.0, 0.0, 0.0, 1.0]
-    ])
-
-    # 将向量转换为 np.array
-    theta_Rho = np.array([0, 2])
-    theta_Rho_prime = np.array([-0.66838837, 2.91649294])
-    # ANRS_res, deter = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
-    # final_res = gradient_descent(ANRS_res, theta_Rho, theta_Rho_prime, T_matrix)
-    # print("Calculated P using ANRS:", final_res)
-    # print("The Ground truth value: ", P0)
-
-
-    # # 调用CTOA_GTRS函数
-    # GTRS_res, deter = GTRS(T_matrix, theta_Rho, theta_Rho_prime)
-    # final_res = gradient_descent(GTRS_res, theta_Rho, theta_Rho_prime, T_matrix)
-
-    # # 显示结果
-    # print('Calculated P using GTRS:', GTRS_res)
-    # print("The Ground truth value: ", P0)
-    
-    # print(np.sum(ANRS_res-P0)**2)
-    # print(np.sum(GTRS_res-P0)**2)
     s_P_0, determinant0 = ANRS(T_matrix, theta_Rho, theta_Rho_prime)
-    s_P_1, determinant1 = GTRS(T_matrix, theta_Rho, theta_Rho_prime)                    
-    print("ANRS")
-    print(determinant0, s_P_0)
-    print("GTRS")
-    print(determinant1, s_P_1)
-    P0 = np.array([2,0,0])
     
-    if s_P_0 is not None:
-        print(np.sum(s_P_0-P0)**2)
-    if s_P_1 is not None:
-        print(np.sum(s_P_1-P0)**2)
+    
+
+    def err(s_P_0, P0):
+        T0_tri = np.array([[-1.49572609e-03,  9.95119728e-01,  9.86635129e-02,
+            -1.97682339e+00],
+        [-9.99883599e-01,  9.84726029e-06, -1.52574254e-02,
+            2.30503163e+00],
+        [-1.51839365e-02, -9.86748493e-02,  9.95003880e-01,
+            5.15142649e-01],
+        [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
+            1.00000000e+00]])
+        w_P = ( T0_tri @ np.hstack([s_P_0, 1]) )[:3]
+        T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
+        T_z_min90 = T_z_90.T
+        R_z_min90 = T_z_min90[:3, :3]
+        w_P =(R_z_min90 @ w_P)          
+        return np.sum( (w_P-P0)**2 )
+    
+    theta, R = -theta_Rho[0], theta_Rho[1]
+    theta_prime, R_prime = -theta_Rho_prime[0], theta_Rho_prime[1]
+    
+    ps = np.array([R * np.sin(theta), R * np.cos(theta)])
+    ps_prime = np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
+    
+    print(s_P_0)
+    print(err(s_P_0, P0))
+    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
+    
+    s_P_0[0] = s_P_0[0]+0.1
+    print(s_P_0)
+    print(err(s_P_0, P0))
+    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
+    
+    s_P_0[0] = s_P_0[0]+0.2
+    print(s_P_0)
+    print(err(s_P_0, P0))
+    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
+
+    s_P_0[0] = s_P_0[0]+0.1
+    print(s_P_0)
+    print(err(s_P_0, P0))
+    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))

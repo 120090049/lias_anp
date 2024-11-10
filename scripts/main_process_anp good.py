@@ -320,16 +320,15 @@ if __name__ == "__main__":
                 new_pts_num+=1
                 s_P, determinant = ANRS(T_matrix, theta_Rho[i], theta_Rho_prime[i])
                 determinant_list.append(determinant)
-                if True:
-                    # Transform back to sim coordinate system
-                    w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
-                    w_P = coordinate_transform_pt_back (w_P)
-                    
-                    difference = np.linalg.norm( w_P - w_P_gt[i] )
-                    if difference < RECONSTRUCTION_ERROR_THRESHOLD:
-                        new_pts_valid_num+=1
-                        P_dict[key] = w_P
-                        reconstruction_error_list.append(difference)
+                # Transform back to sim coordinate system
+                w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
+                w_P = coordinate_transform_pt_back (w_P)
+                
+                difference = np.linalg.norm( w_P - w_P_gt[i] )
+                if difference < RECONSTRUCTION_ERROR_THRESHOLD:
+                    new_pts_valid_num+=1
+                    P_dict[key] = w_P
+                    reconstruction_error_list.append(difference)
                 # s_P, good_reconstruct = gradient_descent(s_P_init, theta_Rho[i], theta_Rho_prime[i], T_matrix, tol = 0.01)
                 # if good_reconstruct:
             else:
