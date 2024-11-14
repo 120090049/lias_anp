@@ -345,7 +345,7 @@ def reconstrunction_error(P, ps, ps_prime, T_matrix):
     
     def project_to_2d(P):
         X, Y, Z = P
-        theta = np.arctan2(X, Y)
+        theta = np.arctan(X/Y)
         d = np.sqrt(X**2 + Y**2 + Z**2)
         x_s = d * np.sin(theta)
         y_s = d * np.cos(theta)
@@ -431,51 +431,138 @@ def gradient_descent(P_init, theta_Rho, theta_Rho_prime, T_matrix, learning_rate
         return P, False
     return P, True 
 
+T_z_90 = np.array([[0,-1,0,0],[1,0,0,0],[0,0,1,0],[ 0,0,0,1]])
+T_z_min90 = T_z_90.T
+R_z_90 = T_z_90[:3, :3]
+R_z_min90 = T_z_min90[:3, :3]
+
+def coordinate_transform_T(T0, T1):
+    # T1 = T0 @ T
+    T_matrix = np.linalg.inv(T0) @ T1 
+    # x-axis oriented switched to y-axis oriented
+    T_matrix = T_z_90 @ T_matrix @ T_z_min90
+    # get transforamtion matrix
+    T_matrix = np.linalg.inv(T_matrix)
+    return T_matrix
+
+def coordinate_transform_Pose(Pose):
+    return (T_z_90 @ Pose @ T_z_min90)
+
+def coordinate_transform_pt(P):
+    return (R_z_90 @ P)
+
+def coordinate_transform(p0, p1, T0, T1):
+    p0 = coordinate_transform_pt(p0)
+    p1 = coordinate_transform_pt(p1)
+    T_matrix = coordinate_transform_T(T0, T1)
+    return p0, p1, T_matrix
+
+def coordinate_transform_Pose_back(Pose):
+    return (T_z_min90 @ Pose @ T_z_90)
+
+def coordinate_transform_pt_back(P):
+    return (R_z_min90 @ P)
+
+
+def mat_difference(T1, T2):
+    """计算并打印两个旋转矩阵之间的差别"""
+    R1, R2 = T1[:3, :3], T2[:3, :3]
+    t1, t2 = T1[:3, 3], T2[:3, 3]
+    print("Distance: ", np.linalg.norm(t1-t2))
+    # 计算相对旋转矩阵
+    R_diff = R1 @ R2.T
+    
+    # Frobenius范数
+    frob_norm = np.linalg.norm(R1 - R2, 'fro')
+    
+    # 计算旋转角度，添加裁剪避免数值误差
+    cos_theta = (np.trace(R_diff) - 1) / 2
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)  # 裁剪到[-1, 1]范围
+    theta = np.arccos(cos_theta)
+    angle_deg = np.degrees(theta)
+    
+    print(f"Frobenius范数: {frob_norm:.4f}")
+    print(f"旋转角度: {angle_deg:.2f}度")
+    print("相对旋转矩阵:\n", R_diff)
+    print()
+    
 if __name__ == "__main__":
 
-    T1 = np.array([[  0.92734151,  -0.28720686,  -0.23989568,  -5.15754337],
-       [ -0.08671755,  -0.78854084,   0.60883775,   1.22938555],
-       [ -0.36402992,  -0.54379736,  -0.75615253, -22.29780405],
-       [  0.        ,   0.        ,   0.        ,   1.        ]])
-    T2 = np.array([[  0.80693073,  -0.48340433,  -0.33938628,  -5.79850928],
-       [  0.25386639,  -0.23496316,   0.93826658,   0.39707859],
-       [ -0.5333054 ,  -0.84327491,  -0.06687889, -20.31179048],
-       [  0.        ,   0.        ,   0.        ,   1.        ]])
-    P = np.array([ 3.88300347, -1.09663165, -1.04860139])
-    
-    T_matrix = np.array([[ 9.99999308e-01, -7.69241812e-06, -1.17671622e-03,
-         2.35407061e-02],
-       [ 7.92245717e-06,  9.99999981e-01,  1.95487843e-04,
-        -3.81230491e-03],
-       [ 1.17671469e-03, -1.95497030e-04,  9.99999289e-01,
-        -1.42558546e-03],
+    T1 = np.array([[ 6.93889390e-18, -8.98358584e-01, -4.39262854e-01,
+         2.87099822e+00],
+       [-9.95951033e-01,  3.94885835e-02, -8.07600908e-02,
+        -1.80037832e+00],
+       [ 8.98973887e-02,  4.37484293e-01, -8.94721159e-01,
+         5.43549911e-01],
        [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
          1.00000000e+00]])
-    theta_Rho = np.array([0.38724926, 3.48554063])
-    theta_Rho_prime = np.array([0.38127652, 3.47328043])
+    T2 = np.array([[-2.49800181e-16, -9.15205822e-01, -4.02986729e-01,
+         2.84933149e+00],
+       [-9.95904504e-01,  3.64345911e-02, -8.27450324e-02,
+        -1.81070042e+00],
+       [ 9.04113921e-02,  4.01336298e-01, -9.11457600e-01,
+         5.42466574e-01],
+       [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,
+         1.00000000e+00]])
+    T_matrix = np.array([[ 0.83077673, -0.52005228, -0.1983826 ,  0.01575172],
+       [ 0.55119677,  0.71910679,  0.42316374, -0.01854993],
+       [-0.07740899, -0.46090243,  0.88406832, -0.02463675],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    P = np.array([ 5.08922911, -3.60444617, -0.58002067])
+    # pre_T
+    # T2_gt
+    # T_matrix
+    # w_P_gt[i]
+    
+    R1 = T1[:3, :3]
+    t1 = T1[:3, 3]
+    
+    R2 = T2[:3, :3]
+    t2 = T2[:3, 3]
+    
+    P_S1 = np.linalg.inv(R1) @ (P.T - t1)
+    print(P_S1)
+    P_S2 = np.linalg.inv(R2) @ (P.T - t2)
+    
+    X, Y, Z = P_S1[0], P_S1[1], P_S1[2]
+    Rho = np.sqrt(X**2 + Y**2 + Z**2)
+    theta = np.arctan(Y/X)
+    theta_Rho = [theta, Rho]
+    
+    X, Y, Z = P_S2[0], P_S2[1], P_S2[2]
+    Rho = np.sqrt(X**2 + Y**2 + Z**2)
+    theta = np.arctan(Y/X)
+    theta_Rho_prime = [theta, Rho]
 
+    T1_tri = coordinate_transform_Pose(T1)
+    T2_tri = coordinate_transform_Pose(T2)
+    T_matrix_gt = np.linalg.inv(T2_tri) @ T1_tri
+
+    mat_difference(T_matrix_gt, T_matrix)
+    
+    s_P, determinant = ANRS( T_matrix, theta_Rho, theta_Rho_prime)
+    # s_P, determinant = GTRS(T_matrix, theta_Rho, theta_Rho_prime)
+    print("determinant:", determinant)
+    print("SP take a look")
+    print(s_P, '\n', coordinate_transform_pt(P_S1))
+    print()
+    # s_P[0] = -s_P[0]
+    # s_P[1] = -s_P[1]
+    w_P = ( T1_tri @ np.hstack([s_P, 1]) )[:3]
+    w_P = coordinate_transform_pt_back(w_P)
+    difference = np.linalg.norm( P - w_P )
+    # print(w_P, '\n', P)
+    print("difference:", difference)
+    print(s_P[0]>0)
+    
+    # P_ = coordinate_transform_pt(P)
+    # s_P_ = ( np.linalg.inv(T1_tri) @ np.hstack([P_, 1]) )[:3]
     
     theta, R = -theta_Rho[0], theta_Rho[1]
     theta_prime, R_prime = -theta_Rho_prime[0], theta_Rho_prime[1]
-    
-    ps = np.array([R * np.sin(theta), R * np.cos(theta)])
-    ps_prime = np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
-    
-    print(s_P_0)
-    print(err(s_P_0, P0))
-    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
-    
-    s_P_0[0] = s_P_0[0]+0.1
-    print(s_P_0)
-    print(err(s_P_0, P0))
-    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
-    
-    s_P_0[0] = s_P_0[0]+0.2
-    print(s_P_0)
-    print(err(s_P_0, P0))
-    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
+    ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
+    recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
+    print("recon_error: ", recon_error)
+    # recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
+    # print("recon_error: ", recon_error)
 
-    s_P_0[0] = s_P_0[0]+0.1
-    print(s_P_0)
-    print(err(s_P_0, P0))
-    print(reconstrunction_error(s_P_0, ps, ps_prime, T_matrix))
