@@ -165,49 +165,13 @@ def calculate_RTE(real_poses, estimated_poses):
     return translation_rmse, rotation_rmse
 
 # Usage
-file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/square_no3D_gt2D_same_direction/atraj.csv"  # Replace with your CSV file path
-real_poses1, estimated_poses_anp = read_csv_file(file_path)
-file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/record12/atraj.csv"  # Replace with your CSV file path
-real_poses2, estimated_poses_app = read_csv_file(file_path)
-file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/circle_no3D_gt2D_same_direction/atraj.csv"  # Replace with your CSV file path
-real_poses3, estimated_poses_nonapp = read_csv_file(file_path)
+file_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/record69/atraj.csv"  # Replace with your CSV file path
+real_poses1, estimated_poses_anp, coordinates_list = read_csv_file(file_path)
 
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/eight_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses1, estimated_poses_anp = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/app/eight_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses2, estimated_poses_app = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/nonapp/eight_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses3, estimated_poses_nonapp = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/circle_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses1, estimated_poses_anp = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/app/circle_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses2, estimated_poses_app = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/nonapp/circle_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses3, estimated_poses_nonapp = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/anp/square_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses1, estimated_poses_anp = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/app/square_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses2, estimated_poses_app = read_csv_file(file_path)
-# file_path = "/home/clp/catkin_ws/src/lias_anp/record/nonapp/square_gt3D_noisy2D/atraj.csv"  # Replace with your CSV file path
-# real_poses3, estimated_poses_nonapp = read_csv_file(file_path)
 print(calculate_ATE(real_poses1, estimated_poses_anp))
-print(calculate_ATE(real_poses2, estimated_poses_app))
-print(calculate_ATE(real_poses3, estimated_poses_nonapp))
+
 print(calculate_RTE(real_poses1, estimated_poses_anp))
-print(calculate_RTE(real_poses2, estimated_poses_app))
-print(calculate_RTE(real_poses3, estimated_poses_nonapp))
 
-# ATE
-#       T                       R
-# ANP   (0.0009559835213351166, 0.0017780710445350087)
-# APP   (0.012842522117435145, 0.017887916294520835)
-# NONAPP(0.005813109729101283, 2.014408529318281)
-
-# RTE
-#       T                       R
-# ANP   (0.001332723699383795, 0.0025714799401775753)
-# APP   (0.00530299749664808, 0.008206975704703991)
-# NPNAPP(0.06680249098313859, 0.05775331198062487)
 
 length_list = []
 for i in range(1, len(real_poses1)):
@@ -237,13 +201,11 @@ plotter = TrajectoryPlotter()
 
 # Add the real trajectory
 plotter.add_trajectory(real_poses1, 'Blue', 'Real Traj')
-plotter.add_trajectory(real_poses2, 'Blue', 'Real Traj')
-plotter.add_trajectory(real_poses3, 'Blue', 'Real Traj')
+
 
 # Add the estimated trajectory
 plotter.add_trajectory(estimated_poses_anp, 'Red', 'anp')
-plotter.add_trajectory(estimated_poses_app, 'Green', 'app')
-plotter.add_trajectory(estimated_poses_nonapp, 'Purple', 'nonapp')
+
 
 # Plot all the added trajectories
 plotter.plot_all()

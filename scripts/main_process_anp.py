@@ -136,7 +136,7 @@ if __name__ == "__main__":
     deter_list = []
     reconstruction_error_list = []
     
-    for timestep, entry in enumerate(data[start_index:], start=start_index):
+    for timestep, entry in enumerate(data[start_index::5], start=start_index):
         print("==========================================")
         print(f"Timestep: {timestep}") 
         ############################
@@ -206,8 +206,6 @@ if __name__ == "__main__":
         T2_tri = coordinate_transform_Pose(T2)
         T_matrix = np.linalg.inv(T2_tri) @ T1_tri
 
-        if timestep % 20 == 1:
-            print()
         
         difference_list = []
         deter_list = []
@@ -233,11 +231,14 @@ if __name__ == "__main__":
                 difference = np.linalg.norm( w_P_gt[i] - w_P )
                 
                 # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 1e-5:
-                if recon_error < 1e-5 and abs(determinant) > 1e-5:
+                if recon_error < 0.001 and abs(determinant) > 1e-5 :
                 # if True:
                     new_pts_valid_num+=1
-                    key = common_indices[i]
-                    P_dict[key] = w_P
+                    if timestep < 10:
+                        key = common_indices[i]
+                        P_dict[key] = w_P
+                    if difference > 0.3:
+                        print()
 
                     # if difference > 1:
                     #     print()
@@ -245,7 +246,6 @@ if __name__ == "__main__":
                     difference_list.append(difference)
                     deter_list.append(determinant)
         
-        pre_T = T2_gt     
         
         print("Dis "+" ".join("{:5.6f}".format(x) for x in difference_list))
         print("Rec "+" ".join("{:5.6f}".format(x) for x in reconstruction_error_list))
@@ -262,7 +262,11 @@ if __name__ == "__main__":
         pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         # determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         print(f'\rPose_estimation_error: {pose_estimation_error}')
-        print()
+        if timestep % 20 == 1:
+            print()
+        
+        pre_T = T2_gt     
+        
         
         #################################################################
         ## Visualization work
