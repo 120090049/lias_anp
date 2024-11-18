@@ -30,10 +30,24 @@ with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
     ANP_METHOD = params['ANP_METHOD']
+    rotation_noise_std = float(params['INITIALIZE']['rotation_noise_std'])
+    translation_noise_std = float(params['INITIALIZE']['translation_noise_std'])
+    
+    Rho_noise_std = float(params['SONAR_NOISE']['Rho_noise_std'])
+    theta_noise_std = float(params['SONAR_NOISE']['theta_noise_std'])
     
 with open(os.path.join(lias_anp_dir, 'yaml/sim_env.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     PHI_MAX = int(params['sonar_attribute']['fov_vertical']) * np.pi / 180
+
+def theta_Rho_add_noise(theta_Rho):
+    theta = theta_Rho[:,0]
+    Rho = theta_Rho[:,1]
+    theta_noise = np.random.normal(0, theta_noise_std, size=theta.shape)
+    new_theta = np.arctan(np.tan(theta) + theta_noise)
+    Rho_noise = np.random.normal(0, Rho_noise_std, size=Rho.shape) 
+    new_Rho = Rho + Rho_noise
+    return np.vstack((new_theta, new_Rho)).T 
 
 if __name__ == "__main__":
 
@@ -66,12 +80,14 @@ if __name__ == "__main__":
         # initialize
         T0 = ros_pose_to_transform_matrix(data[0]['pose'])
         T1 = ros_pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
-        # T0 = add_noise_to_pose(T0, rotation_noise_std=0.00001, translation_noise_std=0.0001)
-        # T1 = add_noise_to_pose(T1, rotation_noise_std=0.00001, translation_noise_std=0.0001)
+        T0 = add_noise_to_pose(T0, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
+        T1 = add_noise_to_pose(T1, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
+    
         
-        theta_Rho0 = data[0]['si_q_theta_Rho']
+        theta_Rho0 = theta_Rho_add_noise(data[0]['si_q_theta_Rho'])
         pts_indice0 = data[0]['pts_indice']
-        theta_Rho1 = data[1]['si_q_theta_Rho']
+        
+        theta_Rho1 = theta_Rho_add_noise(data[1]['si_q_theta_Rho'])
         pts_indice1 = data[1]['pts_indice']
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
         
@@ -111,139 +127,14 @@ if __name__ == "__main__":
 
         print()
         
-    if True:
-        ###############################################
-        INITIALIZE_FRAMES = 10
-        step_size = 1
-        
-        # Add some noise to the poses
-        T_tri_accross_times = [T0_tri, T1_tri]
-        for i in range(2, INITIALIZE_FRAMES):
-            Ti_tri = coordinate_transform_Pose(ros_pose_to_transform_matrix(data[step_size*i]['pose']))
-            # Ti_tri = add_noise_to_pose(Ti_tri, rotation_noise_std=0.0001, translation_noise_std=0.0005)
-            T_tri_accross_times.append(Ti_tri)
-        
-        # read data
-        theta_Rhos_across_times = []
-        pts_indices_across_times = []
-        for i in range(INITIALIZE_FRAMES):
-            theta_Rhoi = data[step_size*i]['si_q_theta_Rho']
-            pts_indicei = data[step_size*i]['pts_indice']
-            theta_Rhos_across_times.append(theta_Rhoi)
-            pts_indices_across_times.append(pts_indicei)
-    
-        matched_theta_Rho_across_times, common_indices = get_match_pairs(theta_Rhos_across_times, pts_indices_across_times)
-        matched_theta_Rho_across_times = np.array(matched_theta_Rho_across_times)
-        points_num = len(common_indices)
-    
-        ## find gt ##
-        w_P_gt = data[0]['w_p']
-        pts_indice0 = data[0]['pts_indice']
-        temp_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
-        w_P_gt = w_P_gt[temp_indices] 
-        
-        # Now we have T_tri_accross_times and matched_theta_Rho_across_times
-        # We need to iterate through points
-    
-        ##################################################### 
-        # for each points
-        ##################################################### 
-        P_dict_1 = {}
-        difference_list = []
-        reconstruction_error_list = []
-        reconstruction_error_list_filtered = []
-        for point_index in range(points_num):
-            theta_Rhos = matched_theta_Rho_across_times[:,point_index,:]
-            
-            A_stacked = np.empty((0, 4))
-            b_stacked = np.empty((0,))
-            A_list = []
-            b_list = []
-
-            for i in range(INITIALIZE_FRAMES-1):
-                T0 = T_tri_accross_times[i]
-                T1 = T_tri_accross_times[i+1]
-                T_matrix = np.linalg.inv(T1) @ T0
-                theta_Rho = theta_Rhos[i]
-                theta_Rho_prime = theta_Rhos[i+1]
-
-                
-                # 将线性方程组写成矩阵形式 A @ P = B
-                R_matrix = T_matrix[:3, :3]
-                t = T_matrix[:3, 3]
-                r1 = R_matrix[0, :]
-                r2 = R_matrix[1, :]
-
-                # for theta_Rho, theta_Rho_prime in zip(theta_Rhos, theta_Rho_primes):
-                theta = -theta_Rho[0]
-                theta_prime = -theta_Rho_prime[0]
-                R = theta_Rho[1]  # example value for R
-                R_prime = theta_Rho_prime[1] # example value for R'
-                
-                a1 = np.array([-1, np.tan(theta), 0])
-                b1 = 0 
-                a2 = np.tan(theta_prime) * r2 - r1
-                b2 = t[0] - np.tan(theta_prime) * t[1]
-                a3 = t.T @ R_matrix
-                b3 = (R_prime**2 - R**2 - np.linalg.norm(t)**2) / 2
-
-                A = np.vstack([a1, a2, a3])
-                b = np.array([b1, b2, b3, 1])
-
-                H = np.eye(4)
-                H[:3, :3] = A
-                A = H
-                A1 = A @ np.linalg.inv(T0) 
-
-                
-                # 将 A 和 b 添加到列表中
-                A_stacked = np.vstack((A_stacked, A1))
-                b_stacked = np.append(b_stacked, b)
-            
-            # At this time w_P is still at the original ANRS frame
-            w_P, residuals, rank, s = np.linalg.lstsq(A_stacked, b_stacked, rcond=None)
-            
-            
-            # Prepare for the reconstruction error calculation
-            theta, R = -theta_Rhos[0][0], theta_Rhos[0][1]
-            theta_prime, R_prime = -theta_Rhos[INITIALIZE_FRAMES-1][0], theta_Rhos[INITIALIZE_FRAMES-1][1]
-            ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
-            T0_tri = T_tri_accross_times[0]
-            T1_tri = T_tri_accross_times[INITIALIZE_FRAMES-1]
-            T_matrix = np.linalg.inv(T1_tri) @ T0_tri
-            
-            w_P[3] = 1
-            s_P = ( np.linalg.inv(T0_tri) @ w_P )[:3]
-            w_P = w_P[:3]
-            w_P = coordinate_transform_pt_back( w_P )
-    
-            difference = np.linalg.norm( w_P - w_P_gt[point_index] )
-            difference_list.append(difference)
-            recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
-            reconstruction_error_list.append(recon_error)
-            
-            if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
-                key = common_indices[point_index]
-                P_dict_1[key] = w_P
-                reconstruction_error_list_filtered.append(difference)
-                    
-                    
-        print(np.mean(np.array(reconstruction_error_list_filtered)), np.var(np.array(reconstruction_error_list_filtered)))
-        print(len(reconstruction_error_list), len(reconstruction_error_list_filtered))
-        print(" ".join("{:5.2f}".format(x) for x in difference_list))
-        print(" ".join("{:5.2f}".format(x) for x in reconstruction_error_list))
-
+   
     ###############################################
     ## END TRI!! NEED TO TRANSFORM P_W back to original COORDINATE SYSTEM
     ###############################################
     # multi_frame_initialize = int(input("0 for ANRS and 1 for multi_frame: "))
-    multi_frame_initialize = 0
-    if multi_frame_initialize:
-        start_index = INITIALIZE_FRAMES
-        P_dict = P_dict_1
-    else:    
-        start_index = 2
-        P_dict = P_dict_0
+   
+    start_index = 2
+    P_dict = P_dict_0
         
     
     # 初始化空列表用于存储轨迹
@@ -261,14 +152,17 @@ if __name__ == "__main__":
     deter_list = []
     reconstruction_error_list = []
     
-    for timestep, entry in enumerate(data[start_index:], start=start_index):
+    # for timestep, entry in enumerate(data[start_index::3], start=start_index):
+    step_size = 3
+    for timestep in range(start_index, len(data), step_size):
+        entry = data[timestep]
         print("==========================================")
         print(f"Timestep: {timestep}") 
         ############################
         ### ANP
         ############################
         ## Get q_si2 and P_w for ANP
-        theta_Rho2 = entry['si_q_theta_Rho']
+        theta_Rho2 = theta_Rho_add_noise(entry['si_q_theta_Rho'])
         q_si_x2 = np.cos(theta_Rho2.T[0]) * theta_Rho2.T[1]
         q_si_y2 = np.sin(theta_Rho2.T[0]) * theta_Rho2.T[1]
         q_si2 = np.vstack([q_si_x2, q_si_y2])
@@ -319,8 +213,7 @@ if __name__ == "__main__":
         temp_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[temp_indices] 
         
-        
-        
+    
         determinant_list = []
         
         new_pts_num = 0
@@ -331,8 +224,10 @@ if __name__ == "__main__":
         T2_tri = coordinate_transform_Pose(T2)
         T_matrix = np.linalg.inv(T2_tri) @ T1_tri
 
-        if timestep == 218:
-            print()
+        
+        difference_list = []
+        deter_list = []
+        reconstruction_error_list = []
             
         for i in range(len(theta_Rho)):
             key = common_indices[i]
@@ -352,23 +247,29 @@ if __name__ == "__main__":
                 recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
                 
                 difference = np.linalg.norm( w_P_gt[i] - w_P )
-                # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 0.01:
-                if True:
-                    reconstruction_error_list.append(recon_error)
+                
+                # if difference < 0.1  :
+                #     P_dict[key] = w_P
+                    
+                # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 1e-5:
+                if recon_error < 0.001 and abs(determinant) > 1e-5 :
                     new_pts_valid_num+=1
-                    key = common_indices[i]
-                    P_dict[key] = w_P
+                    if timestep < 10:
+                        key = common_indices[i]
+                        P_dict[key] = w_P
+                    # if difference > 0.3:
+                    #     print()
 
                     # if difference > 1:
                     #     print()
+                    reconstruction_error_list.append(recon_error)
                     difference_list.append(difference)
                     deter_list.append(determinant)
         
-        pre_T = T2_gt     
         
-        print("Dis "+" ".join("{:5.2f}".format(x) for x in difference_list))
-        print("Rec "+" ".join("{:5.2f}".format(x) for x in reconstruction_error_list))
-        print("Det "+" ".join("{:5.2f}".format(x) for x in deter_list))
+        print("Dis "+" ".join("{:5.6f}".format(x) for x in difference_list))
+        print("Rec "+" ".join("{:5.6f}".format(x) for x in reconstruction_error_list))
+        print("Det "+" ".join("{:5.6f}".format(x) for x in deter_list))
             
         theta_Rho1 = theta_Rho2
         pts_indice1 = pts_indice2
@@ -381,7 +282,11 @@ if __name__ == "__main__":
         pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         # determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         print(f'\rPose_estimation_error: {pose_estimation_error}')
-        print()
+        if timestep % 20 == 1:
+            print()
+        
+        pre_T = T2_gt     
+        
         
         #################################################################
         ## Visualization work
@@ -401,7 +306,7 @@ if __name__ == "__main__":
         ax = fig.add_subplot(111, projection='3d')
 
         ax.plot(real_poses_x, real_poses_y, real_poses_z, 'b-', label='Real Traj')
-        ax.plot(estimated_poses_x, estimated_poses_y, estimated_poses_z, 'r--', label='Estimated Traj')
+        ax.plot(estimated_poses_x, estimated_poses_y, estimated_poses_z, 'r--', label=ANP_METHOD)
 
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
@@ -411,7 +316,7 @@ if __name__ == "__main__":
         ax.grid(True)
 
         if RECORD:
-            if timestep == len(data) - 1:
+            if timestep >= (len(data) - step_size):
                 n_points = len(real_poses_x)
                 # 创建颜色渐变，使用 colormap
                 cmap = cm.get_cmap('Blues')  # 蓝色渐变 colormap

@@ -12,7 +12,7 @@ class TrajectoryGenerator:
         :param delta_t: 时间步长
         """
         self.a = 2.0  # X轴振幅
-        self.b = 2.0  # Y轴振幅
+        self.b = 1.0  # Y轴振幅
         self.c = 0.5  # Z轴振幅
         self.rate = rate
         self.delta_t = 1

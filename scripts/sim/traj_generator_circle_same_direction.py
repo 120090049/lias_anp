@@ -5,7 +5,7 @@ from geometry_msgs.msg import PoseStamped
 from tf.transformations import quaternion_from_euler
 
 class TrajectoryGenerator:
-    def __init__(self, fast_speed=0.5, slow_speed=0.2, delta_t=0.01):
+    def __init__(self, fast_speed=0.4, slow_speed=0.2, delta_t=0.01):
         """
         初始化轨迹生成器参数
         :param fast_speed: 直线段速度
@@ -17,8 +17,8 @@ class TrajectoryGenerator:
         self.delta_t = delta_t
         self.t = 0.0
 
-        self.side_length = 4  # 正方形边长
-        self.corner_radius = 2  # 角落圆弧半径
+        self.side_length = 8  # 正方形边长
+        self.corner_radius = 4  # 角落圆弧半径
         
         self.straight_length = self.side_length - 2 * self.corner_radius
         self.quarter_circle = np.pi * self.corner_radius / 2
@@ -30,7 +30,7 @@ class TrajectoryGenerator:
         # 初始化ROS节点和发布器
         rospy.init_node('sonar_pose_publisher', anonymous=True)
         self.pub = rospy.Publisher('/set_sonar_pose', PoseStamped, queue_size=10)
-        self.rate_hz = rospy.Rate(10)  # 10 Hz
+        self.rate_hz = rospy.Rate(100)  # 10 Hz
 
     def generate_trajectory(self, t):
         """
@@ -89,10 +89,16 @@ class TrajectoryGenerator:
                 yaw = -(1.5*np.pi + angle)
 
         z = 0.5 + 0.1 * np.sin(2 * np.pi * t / self.period)
-        # roll = 0.1 * np.sin(2 * np.pi * t / self.period)
-        roll = 1 * t
-        pitch = 0.1 * np.cos(2 * np.pi * t / self.period)
-        yaw = -np.pi/2
+        roll = 0.1 * np.sin(20 * np.pi * t / self.period)
+        pitch = 0.1 * np.cos(20 * np.pi * t / self.period)
+        # posit = np.array([x,y])
+        point = np.array([self.side_length/2, 0])
+        # print(np.linalg.norm(posit-point))
+        # print(y)
+        yaw = np.pi+np.arctan2( (y-point[1]), (x-point[0]))
+        # yaw = np.where(yaw < 0, yaw + np.pi, yaw)
+        # print('{:.2g}, {:.2g}'.format(x, y))
+
         return x, y, z, roll, pitch, yaw
 
     def publish_pose(self):
@@ -122,7 +128,7 @@ class TrajectoryGenerator:
 if __name__ == '__main__':
     try:
         # 初始化轨迹生成器，参数可以在这里修改
-        traj_gen = TrajectoryGenerator(fast_speed=2, slow_speed=0.6, delta_t=0.01)
+        traj_gen = TrajectoryGenerator(fast_speed=1, slow_speed=0.5, delta_t=0.01)
         traj_gen.publish_pose()
     except rospy.ROSInterruptException:
         pass

@@ -45,7 +45,7 @@ def theta_Rho_add_noise(theta_Rho):
     Rho = theta_Rho[:,1]
     theta_noise = np.random.normal(0, theta_noise_std, size=theta.shape)
     new_theta = np.arctan(np.tan(theta) + theta_noise)
-    Rho_noise = np.random.normal(0, theta_noise_std, size=Rho.shape) 
+    Rho_noise = np.random.normal(0, Rho_noise_std, size=Rho.shape) 
     new_Rho = Rho + Rho_noise
     return np.vstack((new_theta, new_Rho)).T 
 
@@ -71,28 +71,32 @@ if __name__ == "__main__":
     ###############################################
     ## TRI!! NEED TO TRANSFORM COORDINATE SYSTEM
     ###############################################
+    first_index = 0
+    second_index = 3
+    step_size = 3
     if True:
         # Dictionary to store estimated points in world coordinate system
+        
         P_dict_0 = {}
         difference_list = []
         reconstruction_error_list = []
         reconstruction_error_list_filtered = []
         # initialize
-        T0 = ros_pose_to_transform_matrix(data[0]['pose'])
-        T1 = ros_pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
+        T0 = ros_pose_to_transform_matrix(data[first_index]['pose'])
+        T1 = ros_pose_to_transform_matrix(data[second_index]['pose']) # This is what we need to initialize
         T0 = add_noise_to_pose(T0, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
         T1 = add_noise_to_pose(T1, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
     
         
-        theta_Rho0 = theta_Rho_add_noise(data[0]['si_q_theta_Rho'])
-        pts_indice0 = data[0]['pts_indice']
+        theta_Rho0 = theta_Rho_add_noise(data[first_index]['si_q_theta_Rho'])
+        pts_indice0 = data[first_index]['pts_indice']
         
-        theta_Rho1 = theta_Rho_add_noise(data[1]['si_q_theta_Rho'])
-        pts_indice1 = data[1]['pts_indice']
+        theta_Rho1 = theta_Rho_add_noise(data[second_index]['si_q_theta_Rho'])
+        pts_indice1 = data[second_index]['pts_indice']
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
         
         # Points ground truth
-        w_P_gt = data[0]['w_p']
+        w_P_gt = data[first_index]['w_p']
         temp_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[temp_indices] 
         
@@ -111,16 +115,18 @@ if __name__ == "__main__":
             ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
     
             difference = np.linalg.norm( w_P_gt[i] - w_P )
-            difference_list.append(difference)
             recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
             reconstruction_error_list.append(recon_error)
             
-            if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
+            # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
+            if recon_error < 0.0001 and abs(determinant) > 1e-4 :
+            
                 key = common_indices[i]
                 P_dict_0[key] = w_P
                 reconstruction_error_list_filtered.append(recon_error)
+                difference_list.append(difference)
                 
-        print(np.mean(np.array(reconstruction_error_list_filtered)), np.var(np.array(reconstruction_error_list_filtered)))
+        print(np.mean(np.array(difference_list)), np.var(np.array(difference_list)))
         print(len(reconstruction_error_list), len(reconstruction_error_list_filtered))   
         print(" ".join("{:5.2f}".format(x) for x in difference_list))
         print(" ".join("{:5.2f}".format(x) for x in reconstruction_error_list))
@@ -133,7 +139,6 @@ if __name__ == "__main__":
     ###############################################
     # multi_frame_initialize = int(input("0 for ANRS and 1 for multi_frame: "))
    
-    start_index = 2
     P_dict = P_dict_0
         
     
@@ -153,7 +158,8 @@ if __name__ == "__main__":
     reconstruction_error_list = []
     
     # for timestep, entry in enumerate(data[start_index::3], start=start_index):
-    step_size = 3
+    input()
+    start_index = second_index + step_size
     for timestep in range(start_index, len(data), step_size):
         entry = data[timestep]
         print("==========================================")
@@ -334,7 +340,7 @@ if __name__ == "__main__":
                 for i in range(n_points - 1):
                     ax.plot(estimated_poses_x[i:i+2], estimated_poses_y[i:i+2], estimated_poses_z[i:i+2], color=colors_estimated[i])
 
-                
+                ax.set_zlim(-1, 2)
                 plt.show()  # 图像窗口将一直显示，直到你手动关闭它
             
             file_name = f"{record_folder}/time_{timestep}.png"
