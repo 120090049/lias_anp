@@ -5,28 +5,18 @@ ANP_METHOD: "ToCAnP"
 # ANP_METHOD: "Nonapp"
 # ANP_METHOD: "CombineCIO"
 
+INITIALIZE: # Noise for pose during the initialization stage
+  rotation_noise_std: 0.001
+  translation_noise_std: 0.001
+
+SONAR_NOISE: # Noise for Rho and Theta 
+  Rho_noise_std: 0.01
+  theta_noise_std: 0.01
+
 RECORD: TRUE
-# RECORD: FALSE
 
 ERROR_THRESHOLD_BREAK: 0.5
-# data_path: "/data/big_eight/sonar_data.csv"
-# data_path: "/data/big_eight/sonar_data_noisy.csv"
 
-# data_path: "/data/square/sonar_data.csv"
-# data_path: "/data/circle/sonar_data.csv"
-# data_path: "/data/eight/sonar_data.csv"
 
-# data_path: "/data/square/sonar_data_noisy.csv"
-# data_path: "/data/circle/sonar_data_noisy.csv"
-# data_path: "/data/eight/sonar_data_noisy.csv"
-
-# data_path: "/data/Rho_noise0.00001theta_noise0.00001/square/sonar_data_noisy.csv"
-# data_path: "/data/Rho_noise0.00001theta_noise0.00001/circle/sonar_data_noisy.csv"
-# data_path: "/data/orientation_along_tangent_direction/Rho_noise0.00001theta_noise0.00001/circle/sonar_data.csv"
-
-# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/square_all_noisy/sonar_data_noisy.csv"
-# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/circle_all_noisy/sonar_data_noisy.csv"
-# data_path: "/data/heading_in_same_direction/Rho_noise0.00001theta_noise0.00001/eight_all_noisy/sonar_data.csv"
-
-data_path: "/data/sonar_data.csv"
 # data_path: "/data/sonar_data_noisy.csv"
+data_path: "/data/really_good_eight/sonar_data.csv"

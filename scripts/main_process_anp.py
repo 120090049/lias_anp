@@ -30,10 +30,24 @@ with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
     ANP_METHOD = params['ANP_METHOD']
+    rotation_noise_std = float(params['INITIALIZE']['rotation_noise_std'])
+    translation_noise_std = float(params['INITIALIZE']['translation_noise_std'])
+    
+    Rho_noise_std = float(params['SONAR_NOISE']['Rho_noise_std'])
+    theta_noise_std = float(params['SONAR_NOISE']['theta_noise_std'])
     
 with open(os.path.join(lias_anp_dir, 'yaml/sim_env.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     PHI_MAX = int(params['sonar_attribute']['fov_vertical']) * np.pi / 180
+
+def theta_Rho_add_noise(theta_Rho):
+    theta = theta_Rho[:,0]
+    Rho = theta_Rho[:,1]
+    theta_noise = np.random.normal(0, theta_noise_std, size=theta.shape)
+    new_theta = np.arctan(np.tan(theta) + theta_noise)
+    Rho_noise = np.random.normal(0, theta_noise_std, size=Rho.shape) 
+    new_Rho = Rho + Rho_noise
+    return np.vstack((new_theta, new_Rho)).T 
 
 if __name__ == "__main__":
 
@@ -66,12 +80,14 @@ if __name__ == "__main__":
         # initialize
         T0 = ros_pose_to_transform_matrix(data[0]['pose'])
         T1 = ros_pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
-        # T0 = add_noise_to_pose(T0, rotation_noise_std=0.00001, translation_noise_std=0.0001)
-        # T1 = add_noise_to_pose(T1, rotation_noise_std=0.00001, translation_noise_std=0.0001)
+        T0 = add_noise_to_pose(T0, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
+        T1 = add_noise_to_pose(T1, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
+    
         
-        theta_Rho0 = data[0]['si_q_theta_Rho']
+        theta_Rho0 = theta_Rho_add_noise(data[0]['si_q_theta_Rho'])
         pts_indice0 = data[0]['pts_indice']
-        theta_Rho1 = data[1]['si_q_theta_Rho']
+        
+        theta_Rho1 = theta_Rho_add_noise(data[1]['si_q_theta_Rho'])
         pts_indice1 = data[1]['pts_indice']
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
         
@@ -136,14 +152,17 @@ if __name__ == "__main__":
     deter_list = []
     reconstruction_error_list = []
     
-    for timestep, entry in enumerate(data[start_index::5], start=start_index):
+    # for timestep, entry in enumerate(data[start_index::3], start=start_index):
+    step_size = 3
+    for timestep in range(start_index, len(data), step_size):
+        entry = data[timestep]
         print("==========================================")
         print(f"Timestep: {timestep}") 
         ############################
         ### ANP
         ############################
         ## Get q_si2 and P_w for ANP
-        theta_Rho2 = entry['si_q_theta_Rho']
+        theta_Rho2 = theta_Rho_add_noise(entry['si_q_theta_Rho'])
         q_si_x2 = np.cos(theta_Rho2.T[0]) * theta_Rho2.T[1]
         q_si_y2 = np.sin(theta_Rho2.T[0]) * theta_Rho2.T[1]
         q_si2 = np.vstack([q_si_x2, q_si_y2])
@@ -194,8 +213,7 @@ if __name__ == "__main__":
         temp_indices = [np.where(pts_indice2 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[temp_indices] 
         
-        
-        
+    
         determinant_list = []
         
         new_pts_num = 0
@@ -230,15 +248,17 @@ if __name__ == "__main__":
                 
                 difference = np.linalg.norm( w_P_gt[i] - w_P )
                 
+                # if difference < 0.1  :
+                #     P_dict[key] = w_P
+                    
                 # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 1e-5:
                 if recon_error < 0.001 and abs(determinant) > 1e-5 :
-                # if True:
                     new_pts_valid_num+=1
                     if timestep < 10:
                         key = common_indices[i]
                         P_dict[key] = w_P
-                    if difference > 0.3:
-                        print()
+                    # if difference > 0.3:
+                    #     print()
 
                     # if difference > 1:
                     #     print()
@@ -286,7 +306,7 @@ if __name__ == "__main__":
         ax = fig.add_subplot(111, projection='3d')
 
         ax.plot(real_poses_x, real_poses_y, real_poses_z, 'b-', label='Real Traj')
-        ax.plot(estimated_poses_x, estimated_poses_y, estimated_poses_z, 'r--', label='Estimated Traj')
+        ax.plot(estimated_poses_x, estimated_poses_y, estimated_poses_z, 'r--', label=ANP_METHOD)
 
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
@@ -296,7 +316,7 @@ if __name__ == "__main__":
         ax.grid(True)
 
         if RECORD:
-            if timestep == len(data) - 1:
+            if timestep >= (len(data) - step_size):
                 n_points = len(real_poses_x)
                 # 创建颜色渐变，使用 colormap
                 cmap = cm.get_cmap('Blues')  # 蓝色渐变 colormap

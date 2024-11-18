@@ -165,37 +165,18 @@ def calculate_RTE(real_poses, estimated_poses):
     return translation_rmse, rotation_rmse
 
 # Usage
-file_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/record69/atraj.csv"  # Replace with your CSV file path
+# file_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/record11/atraj.csv"  # Replace with your CSV file path
+file_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/record21/atraj.csv"  # Replace with your CSV file path
 real_poses1, estimated_poses_anp, coordinates_list = read_csv_file(file_path)
 
-print(calculate_ATE(real_poses1, estimated_poses_anp))
+file_path = "/home/clp/catkin_ws/src/lias_anp/record/CombineCIO/record2/atraj.csv"  # Replace with your CSV file path
+real_poses2, estimated_poses_CIO, coordinates_list = read_csv_file(file_path)
 
-print(calculate_RTE(real_poses1, estimated_poses_anp))
+# print(calculate_ATE(real_poses1, estimated_poses_anp))
 
-
-length_list = []
-for i in range(1, len(real_poses1)):
-    translation = real_poses1[i][:3, 3].T - real_poses1[i-1][:3, 3].T
-    length_list.append(np.linalg.norm(translation))
-length_list.sort(reverse=True)
-formatted_list = [float('{:.4g}'.format(num)) for num in length_list]
-
-count = Counter(formatted_list)
-for item, frequency in count.items():
-    print(f"{item}: {frequency}")
+# print(calculate_RTE(real_poses1, estimated_poses_anp))
 
 
-# # 创建直方图
-# plt.figure(figsize=(10, 6))
-# plt.hist(length_list, bins=100, edgecolor='black')
-
-# # 设置图表标题和轴标签
-# plt.title('频率分布直方图')
-# plt.xlabel('值')
-# plt.ylabel('频率')
-
-# # 显示图表
-# plt.show()
 
 plotter = TrajectoryPlotter()
 
@@ -205,7 +186,7 @@ plotter.add_trajectory(real_poses1, 'Blue', 'Real Traj')
 
 # Add the estimated trajectory
 plotter.add_trajectory(estimated_poses_anp, 'Red', 'anp')
-
+plotter.add_trajectory(estimated_poses_CIO, 'Purple', 'CIO')
 
 # Plot all the added trajectories
 plotter.plot_all()
