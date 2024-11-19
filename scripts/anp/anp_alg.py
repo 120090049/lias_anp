@@ -69,9 +69,9 @@ class AnPAlgorithm:
         
         if self.method == "ToCAnP":
             R_sw, t_s = ToCAnP(P_W, P_SI)
-        elif self.method == "app":
+        elif self.method == "App":
             R_sw, t_s = App_Algorithm_2(P_W, P_SI, phi_max)
-        elif self.method == "nonapp":
+        elif self.method == "Nonapp":
             R_sw, t_s = Nonapp_Algorithm_2(P_W, P_SI, phi_max, R_true)
         elif self.method == "CombineCIO":
             R_sw, t_s = Combine_CIO_2(P_W, P_SI, phi_max, R_true)

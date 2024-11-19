@@ -27,6 +27,7 @@ import yaml
 with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    DETERMINANT_THRESHOLD = params['DETERMINANT_THRESHOLD']
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
     ANP_METHOD = params['ANP_METHOD']
@@ -118,8 +119,7 @@ if __name__ == "__main__":
             recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
             reconstruction_error_list.append(recon_error)
             
-            # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
-            if recon_error < 0.0001 and abs(determinant) > 1e-4 :
+            if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > DETERMINANT_THRESHOLD :
             
                 key = common_indices[i]
                 P_dict_0[key] = w_P
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         for i in range(w_P_gt.shape[0]):
             ANP_input_difference_list.append(np.linalg.norm(w_P_gt[i]-P_w[i]))
         print(" ".join("{:5.2f}".format(x) for x in ANP_input_difference_list))
-        
+        print("MAX: ", np.max(ANP_input_difference_list))
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
@@ -257,8 +257,7 @@ if __name__ == "__main__":
                 # if difference < 0.1  :
                 #     P_dict[key] = w_P
                     
-                # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 1e-5:
-                if recon_error < 0.001 and abs(determinant) > 1e-5 :
+                if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > DETERMINANT_THRESHOLD :
                     new_pts_valid_num+=1
                     if timestep < 10:
                         key = common_indices[i]

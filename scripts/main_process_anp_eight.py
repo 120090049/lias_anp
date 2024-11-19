@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import numpy as np
-np.random.seed(2)
+np.random.seed(21)
 
 import matplotlib.pyplot as plt
 import sys
