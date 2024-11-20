@@ -12,8 +12,8 @@ INITIALIZE: # Noise for pose during the initialization stage
   translation_noise_std: 0.001
 
 SONAR_NOISE: # Noise for Rho and Theta 
-  Rho_noise_std: 0.001
-  theta_noise_std: 0.001
+  Rho_noise_std: 0.003
+  theta_noise_std: 0.003
 
 
 RECORD: FALSE

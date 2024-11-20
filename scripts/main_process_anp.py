@@ -361,33 +361,53 @@ if __name__ == "__main__":
     # RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
     # print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
 
-    for seed_num in range(100):
-        np.random.seed(seed_num)
-        GOOD_result = 0
-        print("Random Seed Number: ", seed_num)
-        for shape in trajectory_shape:
-            print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
-            for method in methods:       
-                try:
-                    path = "data/{shape}/sonar_data.csv".format(shape=shape)
-                    anp_slam = AnPSonarSLAM(data_path=path, method=method)
-                    anp_slam.run()
-                    real_poses, estimated_poses = anp_slam.get_result()
-                    ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
-                    RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
-                    if method == "ToCAnP": x,y=ATE_t, RTE_t
-                    elif method == "CombineCIO": a,b=ATE_t, RTE_t
-                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
-                except:
-                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
-            if x<a or y<b:
-                GOOD_result += 1
-            print()
-        if GOOD_result > 1:
-            print("================================================")
-            print("++++++++++++++ MAYBE a GOOD one! +++++++++++++++")
-            print("================================================")
-        else:
-            print()
         
-        print()
+    import sys
+
+    # 保存原始的stdout，以便之后恢复
+    original_stdout = sys.stdout
+
+    # 打开文件用于写入
+    with open('0_003.txt', 'w', encoding='utf-8') as f:
+        sys.stdout = f
+        
+        ##################################################################
+        for seed_num in range(100):
+            np.random.seed(seed_num)
+            GOOD_result = 0
+            print("Random Seed Number: ", seed_num)
+            for shape in trajectory_shape:
+                print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
+                x,y = 0,0
+                a,b = 0,0
+                for method in methods:       
+                    try:
+                        path = "data/{shape}/sonar_data.csv".format(shape=shape)
+                        anp_slam = AnPSonarSLAM(data_path=path, method=method)
+                        anp_slam.run()
+                        real_poses, estimated_poses = anp_slam.get_result()
+                        ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
+                        RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
+                        if method == "ToCAnP": x,y=ATE_t, RTE_t
+                        elif method == "CombineCIO": a,b=ATE_t, RTE_t
+                        print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
+                    except:
+                        print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
+                if x<a or y<b:
+                    GOOD_result += 1
+                print()
+            if GOOD_result > 1:
+                print("================================================")
+                print("++++++++++++++ MAYBE a GOOD one! +++++++++++++++")
+                print("================================================")
+            else:
+                print()
+            
+            print()
+        ##################################################################
+        
+        # 恢复原始的stdout
+        sys.stdout = original_stdout
+
+    # 此处print会正常输出到控制台
+    print("DONE")

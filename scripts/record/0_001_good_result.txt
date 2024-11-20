@@ -1,0 +1,80 @@
+Random Seed Number:  22
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.4344    18.13     0.4504    19.45   
+CombineCIO 0.6401    43.28     0.7981    60.23   
+Nonapp     3.8811    83.95     3.6121    92.41   
+App        0.6421    12.59     0.6690    16.28   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.5787    10.28     0.2066    10.86   
+CombineCIO 0.1441    3.89      0.2073    6.00    
+Nonapp     0.7772    37.41     0.9297    50.27   
+App        0.5899    9.71      0.4199    10.93   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.0547    5.21      0.0418    6.67    
+CombineCIO 0.1189    6.23      0.1294    8.60    
+Not enough points for ANP estimation.
+Nonapp     1.9113    45.62     1.2938    50.58   
+App        2.1052    31.45     1.6662    27.08   
+
+
+Random Seed Number:  24
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.8050    45.98     1.0113    49.67   
+CombineCIO 1.9727    52.42     2.2759    60.21   
+Nonapp     0.6376    31.03     0.5223    41.26   
+App        0.6717    7.38      0.1576    7.32    
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.4648    14.79     0.4075    17.01   
+CombineCIO 1.5122    26.24     1.9494    35.26   
+Nonapp     2.6900    66.56     2.5594    64.77   
+App        0.5159    10.19     0.3941    10.38   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.0507    3.89      0.0386    4.31    
+CombineCIO 0.0254    1.46      0.0168    1.54    
+Nonapp     2.4457    53.12     2.6893    54.05   
+App        2.4382    42.59     1.6133    23.62   
+
+
+Random Seed Number:  27
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.8790    17.44     0.2815    15.57   
+CombineCIO 0.5305    10.49     0.7015    14.56   
+Nonapp     0.6138    30.44     0.7803    42.51   
+App        1.0871    18.58     0.8981    17.83   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.1495    7.25      0.1078    9.63    
+CombineCIO 0.6296    12.04     0.9149    17.27   
+Nonapp     0.5295    34.33     0.5695    48.88   
+App        0.6323    11.62     0.2795    10.19   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.1645    10.35     0.0930    9.58    
+CombineCIO 0.0957    3.89      0.0405    4.30    
+Nonapp     1.0318    36.11     1.6177    52.34   
+App        0.7405    13.32     1.0958    19.16   
+
+
+
+Random Seed Number:  29
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.4692    15.25     0.2576    14.02   
+CombineCIO 0.3295    29.89     0.4291    42.24   
+Nonapp     2.0948    28.78     2.0542    31.50   
+App        0.5230    10.09     0.4825    10.65   
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.3446    11.56     0.4093    17.25   
+CombineCIO 0.2815    7.55      0.2331    9.11    
+Nonapp     0.4505    10.56     0.5193    13.36   
+App        0.6540    7.89      0.2597    7.86    
+
+method     ATE_t     ATE_R     RPE_t     RPE_R   
+ToCAnP     0.0476    3.69      0.0211    3.74    
+CombineCIO 0.0864    3.04      0.0609    3.92    
+Nonapp     1.3299    53.62     1.1353    74.49   
+App        0.6937    11.44     0.6643    8.44    
