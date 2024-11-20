@@ -124,7 +124,7 @@ def calculate_ATE(real_poses, estimated_poses):
     return np.round(translation_rmse, 4), np.round(rotation_rmse, 2) 
     # return translation_rmse, rotation_rmse
 
-def calculate_RTE(real_poses, estimated_poses):
+def calculate_RPE(real_poses, estimated_poses):
     """
     Calculate the Relative Trajectory Error (RTE) between the real and estimated poses.
 
@@ -168,60 +168,60 @@ def calculate_RTE(real_poses, estimated_poses):
     return np.round(translation_rmse, 4), np.round(rotation_rmse, 2) 
 
 
-# Usage
-noise_levels = [0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001]
-shapes = ['o','s','8']
+if __name__ == "__main__":
+    noise_levels = [0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001]
+    shapes = ['o','s','8']
 
-for index in range(len(noise_levels)):
-    noise_level = noise_levels[index]
-    for shape in shapes:
-        print("Shape: {}, noise_level {}".format(shape, noise_level))
-        
-        methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
-        ATE_t_list = []
-        ATE_R_list = []
-        RTE_t_list = []
-        RTE_R_list = []
-        
-        print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
-        for method in methods:
-            path = "/home/clp/catkin_ws/src/lias_anp/record/{method}/{shape}/record{index}/atraj.csv".format(method=method, shape=shape, index=str(index+1))
-            real_poses, estimated_poses, coordinates_list = read_csv_file(path)
-            ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
-            RTE_t, RTE_R = calculate_RTE(real_poses, estimated_poses)
-            ATE_t_list.append(ATE_t)
-            ATE_R_list.append(ATE_R)
-            RTE_t_list.append(RTE_t)
-            RTE_R_list.append(RTE_R)
-        
-            print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
-        print()
-    print("------------------------------")    
-        
-
-
-plotter = TrajectoryPlotter()
-shape = '8'
-index=2
-ToCAnP_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
-CIO_path = "/home/clp/catkin_ws/src/lias_anp/record/CombineCIO/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
-Nonapp_path = "/home/clp/catkin_ws/src/lias_anp/record/Nonapp/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
-App_path = "/home/clp/catkin_ws/src/lias_anp/record/App/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
-real_poses1, estimated_poses_ToCAnP, coordinates_list = read_csv_file(ToCAnP_path)
-real_poses2, estimated_poses_CIO, coordinates_list = read_csv_file(CIO_path)
-real_poses3, estimated_poses_Nonapp, coordinates_list = read_csv_file(Nonapp_path)
-real_poses4, estimated_poses_App, coordinates_list = read_csv_file(App_path)
-
-# Add the real trajectory
-plotter.add_trajectory(real_poses1, 'Blue', 'Real Traj')
+    for index in range(len(noise_levels)):
+        noise_level = noise_levels[index]
+        for shape in shapes:
+            print("Shape: {}, noise_level {}".format(shape, noise_level))
+            
+            methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
+            ATE_t_list = []
+            ATE_R_list = []
+            RTE_t_list = []
+            RTE_R_list = []
+            
+            print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
+            for method in methods:
+                path = "/home/clp/catkin_ws/src/lias_anp/record/{method}/{shape}/record{index}/atraj.csv".format(method=method, shape=shape, index=str(index+1))
+                real_poses, estimated_poses, coordinates_list = read_csv_file(path)
+                ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
+                RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
+                ATE_t_list.append(ATE_t)
+                ATE_R_list.append(ATE_R)
+                RTE_t_list.append(RTE_t)
+                RTE_R_list.append(RTE_R)
+            
+                print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
+            print()
+        print("------------------------------")    
+            
 
 
-# # Add the estimated trajectory
-plotter.add_trajectory(estimated_poses_ToCAnP, 'Red', 'ToCAnP')
-plotter.add_trajectory(estimated_poses_CIO, 'Green', 'CombineCIO')
-# plotter.add_trajectory(estimated_poses_CIO[:27], 'Green', 'CombineCIO')
-# plotter.add_trajectory(estimated_poses_Nonapp, 'Blue', 'Nonap')
-plotter.add_trajectory(estimated_poses_App, 'Blue', 'App')
+    plotter = TrajectoryPlotter()
+    shape = '8'
+    index=2
+    ToCAnP_path = "/home/clp/catkin_ws/src/lias_anp/record/ToCAnP/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
+    CIO_path = "/home/clp/catkin_ws/src/lias_anp/record/CombineCIO/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
+    Nonapp_path = "/home/clp/catkin_ws/src/lias_anp/record/Nonapp/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
+    App_path = "/home/clp/catkin_ws/src/lias_anp/record/App/{shape}/record{index}/atraj.csv".format(shape=shape, index=str(index+1))
+    real_poses1, estimated_poses_ToCAnP, coordinates_list = read_csv_file(ToCAnP_path)
+    real_poses2, estimated_poses_CIO, coordinates_list = read_csv_file(CIO_path)
+    real_poses3, estimated_poses_Nonapp, coordinates_list = read_csv_file(Nonapp_path)
+    real_poses4, estimated_poses_App, coordinates_list = read_csv_file(App_path)
 
-# # Plot all the added trajectories
-plotter.plot_all()
+    # Add the real trajectory
+    plotter.add_trajectory(real_poses1, 'Blue', 'Real Traj')
+
+
+    # # Add the estimated trajectory
+    plotter.add_trajectory(estimated_poses_ToCAnP, 'Red', 'ToCAnP')
+    plotter.add_trajectory(estimated_poses_CIO, 'Green', 'CombineCIO')
+    # plotter.add_trajectory(estimated_poses_CIO[:27], 'Green', 'CombineCIO')
+    # plotter.add_trajectory(estimated_poses_Nonapp, 'Blue', 'Nonap')
+    plotter.add_trajectory(estimated_poses_App, 'Blue', 'App')
+
+    # # Plot all the added trajectories
+    plotter.plot_all()
