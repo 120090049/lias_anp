@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import numpy as np
-np.random.seed(21)
 
 import matplotlib.pyplot as plt
 import sys
@@ -26,7 +25,9 @@ from utils.transformation_matrix_add_noise import add_noise_to_pose
 import yaml
 with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     params = yaml.safe_load(file)
+    seed = int(params['random_seed'])
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
+    DETERMINANT_THRESHOLD = params['DETERMINANT_THRESHOLD']
     RECORD = params['RECORD']
     DATA_PATH = params['data_path']
     ANP_METHOD = params['ANP_METHOD']
@@ -35,7 +36,8 @@ with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     
     Rho_noise_std = float(params['SONAR_NOISE']['Rho_noise_std'])
     theta_noise_std = float(params['SONAR_NOISE']['theta_noise_std'])
-    
+np.random.seed(seed)
+
 with open(os.path.join(lias_anp_dir, 'yaml/sim_env.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     PHI_MAX = int(params['sonar_attribute']['fov_vertical']) * np.pi / 180
@@ -50,7 +52,7 @@ def theta_Rho_add_noise(theta_Rho):
     return np.vstack((new_theta, new_Rho)).T 
 
 if __name__ == "__main__":
-
+    DATA_PATH = "/data/eight/sonar_data.csv"
     sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/" + ANP_METHOD
     reader = SonarDataReader(filepath = sonar_data_dir)
@@ -71,6 +73,9 @@ if __name__ == "__main__":
     ###############################################
     ## TRI!! NEED TO TRANSFORM COORDINATE SYSTEM
     ###############################################
+    first_index = 0
+    second_index = 1
+    step_size = 3
     if True:
         # Dictionary to store estimated points in world coordinate system
         P_dict_0 = {}
@@ -78,21 +83,21 @@ if __name__ == "__main__":
         reconstruction_error_list = []
         reconstruction_error_list_filtered = []
         # initialize
-        T0 = ros_pose_to_transform_matrix(data[0]['pose'])
-        T1 = ros_pose_to_transform_matrix(data[1]['pose']) # This is what we need to initialize
+        T0 = ros_pose_to_transform_matrix(data[first_index]['pose'])
+        T1 = ros_pose_to_transform_matrix(data[second_index]['pose']) # This is what we need to initialize
         T0 = add_noise_to_pose(T0, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
         T1 = add_noise_to_pose(T1, rotation_noise_std=rotation_noise_std, translation_noise_std=translation_noise_std)
     
         
-        theta_Rho0 = theta_Rho_add_noise(data[0]['si_q_theta_Rho'])
-        pts_indice0 = data[0]['pts_indice']
+        theta_Rho0 = theta_Rho_add_noise(data[first_index]['si_q_theta_Rho'])
+        pts_indice0 = data[first_index]['pts_indice']
         
-        theta_Rho1 = theta_Rho_add_noise(data[1]['si_q_theta_Rho'])
-        pts_indice1 = data[1]['pts_indice']
+        theta_Rho1 = theta_Rho_add_noise(data[second_index]['si_q_theta_Rho'])
+        pts_indice1 = data[second_index]['pts_indice']
         theta_Rho, theta_Rho_prime, common_indices = get_match_pairs(theta_Rho0, pts_indice0, theta_Rho1, pts_indice1)
         
         # Points ground truth
-        w_P_gt = data[0]['w_p']
+        w_P_gt = data[first_index]['w_p']
         temp_indices = [np.where(pts_indice0 == idx)[0][0] for idx in common_indices]
         w_P_gt = w_P_gt[temp_indices] 
         
@@ -111,16 +116,16 @@ if __name__ == "__main__":
             ps, ps_prime = np.array([R * np.sin(theta), R * np.cos(theta)]), np.array([R_prime * np.sin(theta_prime), R_prime * np.cos(theta_prime)])
     
             difference = np.linalg.norm( w_P_gt[i] - w_P )
-            difference_list.append(difference)
             recon_error = reconstrunction_error(s_P, ps, ps_prime, T_matrix)
             reconstruction_error_list.append(recon_error)
             
-            if recon_error < RECONSTRUCTION_ERROR_THRESHOLD:
+            if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > DETERMINANT_THRESHOLD :
                 key = common_indices[i]
                 P_dict_0[key] = w_P
                 reconstruction_error_list_filtered.append(recon_error)
+                difference_list.append(difference)
                 
-        print(np.mean(np.array(reconstruction_error_list_filtered)), np.var(np.array(reconstruction_error_list_filtered)))
+        print(np.mean(np.array(difference_list)), np.var(np.array(difference_list)))
         print(len(reconstruction_error_list), len(reconstruction_error_list_filtered))   
         print(" ".join("{:5.2f}".format(x) for x in difference_list))
         print(" ".join("{:5.2f}".format(x) for x in reconstruction_error_list))
@@ -133,7 +138,6 @@ if __name__ == "__main__":
     ###############################################
     # multi_frame_initialize = int(input("0 for ANRS and 1 for multi_frame: "))
    
-    start_index = 2
     P_dict = P_dict_0
         
     
@@ -153,7 +157,7 @@ if __name__ == "__main__":
     reconstruction_error_list = []
     
     # for timestep, entry in enumerate(data[start_index::3], start=start_index):
-    step_size = 3
+    start_index = second_index + step_size
     for timestep in range(start_index, len(data), step_size):
         entry = data[timestep]
         print("==========================================")
@@ -186,7 +190,7 @@ if __name__ == "__main__":
         for i in range(w_P_gt.shape[0]):
             ANP_input_difference_list.append(np.linalg.norm(w_P_gt[i]-P_w[i]))
         print(" ".join("{:5.2f}".format(x) for x in ANP_input_difference_list))
-        
+        print("MAX: ", np.max(ANP_input_difference_list))
         
         print("ANP input size: ", len(q_si2.T))
         print("QSI index", filtered_q_si_index)
@@ -251,8 +255,7 @@ if __name__ == "__main__":
                 # if difference < 0.1  :
                 #     P_dict[key] = w_P
                     
-                # if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > 1e-5:
-                if recon_error < 0.001 and abs(determinant) > 1e-5 :
+                if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > DETERMINANT_THRESHOLD :
                     new_pts_valid_num+=1
                     if timestep < 10:
                         key = common_indices[i]
@@ -282,8 +285,6 @@ if __name__ == "__main__":
         pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         # determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         print(f'\rPose_estimation_error: {pose_estimation_error}')
-        if timestep % 20 == 1:
-            print()
         
         pre_T = T2_gt     
         

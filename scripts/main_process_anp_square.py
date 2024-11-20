@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import numpy as np
-np.random.seed(101)
 
 import matplotlib.pyplot as plt
 import sys
@@ -26,6 +25,7 @@ from utils.transformation_matrix_add_noise import add_noise_to_pose
 import yaml
 with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     params = yaml.safe_load(file)
+    seed = int(params['random_seed'])
     RECONSTRUCTION_ERROR_THRESHOLD = params['RECONSTRUCTION_ERROR_THRESHOLD']
     DETERMINANT_THRESHOLD = params['DETERMINANT_THRESHOLD']
     RECORD = params['RECORD']
@@ -36,7 +36,8 @@ with open(os.path.join(lias_anp_dir, 'yaml/odom.yaml'), 'r') as file:
     
     Rho_noise_std = float(params['SONAR_NOISE']['Rho_noise_std'])
     theta_noise_std = float(params['SONAR_NOISE']['theta_noise_std'])
-    
+np.random.seed(seed)
+
 with open(os.path.join(lias_anp_dir, 'yaml/sim_env.yaml'), 'r') as file:
     params = yaml.safe_load(file)
     PHI_MAX = int(params['sonar_attribute']['fov_vertical']) * np.pi / 180
@@ -51,7 +52,7 @@ def theta_Rho_add_noise(theta_Rho):
     return np.vstack((new_theta, new_Rho)).T 
 
 if __name__ == "__main__":
-
+    DATA_PATH = "/data/square/sonar_data.csv"
     sonar_data_dir = str(lias_anp_dir) + DATA_PATH
     reord_dir = str(lias_anp_dir) + "/record/" + ANP_METHOD
     reader = SonarDataReader(filepath = sonar_data_dir)
@@ -77,7 +78,6 @@ if __name__ == "__main__":
     step_size = 3   # Need to set properly in order to get good triangularation  
     if True:
         # Dictionary to store estimated points in world coordinate system
-        
         P_dict_0 = {}
         difference_list = []
         reconstruction_error_list = []
@@ -120,7 +120,6 @@ if __name__ == "__main__":
             reconstruction_error_list.append(recon_error)
             
             if recon_error < RECONSTRUCTION_ERROR_THRESHOLD and abs(determinant) > DETERMINANT_THRESHOLD :
-            
                 key = common_indices[i]
                 P_dict_0[key] = w_P
                 reconstruction_error_list_filtered.append(recon_error)
@@ -158,7 +157,6 @@ if __name__ == "__main__":
     reconstruction_error_list = []
     
     # for timestep, entry in enumerate(data[start_index::3], start=start_index):
-    input()
     start_index = second_index + step_size
     for timestep in range(start_index, len(data), step_size):
         entry = data[timestep]
@@ -287,8 +285,6 @@ if __name__ == "__main__":
         pose_estimation_error = np.linalg.norm(T2_gt[0:3, 3].reshape(-1) - T2[0:3, 3].reshape(-1))
         # determinant_evaluation = sum(abs(x) for x in determinant_list) / len(determinant_list) if determinant_list else 0
         print(f'\rPose_estimation_error: {pose_estimation_error}')
-        if timestep % 20 == 1:
-            print()
         
         pre_T = T2_gt     
         

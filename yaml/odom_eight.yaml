@@ -21,6 +21,6 @@ RECORD: TRUE
 ERROR_THRESHOLD_BREAK: 0.5
 
 
-# data_path: "/data/really_good_eight/sonar_data.csv"
-data_path: "/data/square/sonar_data.csv"
+data_path: "/data/eight/sonar_data.csv"
+# data_path: "/data/square/sonar_data.csv"
 # data_path: "/data/circle/sonar_data.csv"
