@@ -47,7 +47,7 @@ class AnPSonarSLAM:
         self.real_poses = []
         self.estimated_poses = []
 
-        self.first_index = 1
+        self.first_index = 0
         self.second_index = 4
         self.step_size = 4
         
@@ -352,8 +352,7 @@ class AnPSonarSLAM:
         
 if __name__ == "__main__":
     methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
-    # trajectory_shape = ['square', 'circle', 'eight']
-    trajectory_shape = ['square']
+    trajectory_shape = ['square', 'circle', 'eight']
     # method = methods[0]
     # anp_slam = AnPSonarSLAM(data_path="data/square/sonar_data.csv", method=method)
     # anp_slam.run()
@@ -368,7 +367,43 @@ if __name__ == "__main__":
 
         
         ##################################################################
-    # size = 10
+    size = 10
+    all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
+    for seed_num in range(size):
+        np.random.seed(seed_num)
+        GOOD_result = 0
+        print("Random Seed Number: ", seed_num)
+        results_matrix = np.zeros((12, 4))
+        row_index = 0  # To track the current row in the matrix
+        for shape in trajectory_shape:
+            x,y = 0,0
+            a,b = 0,0
+            for method in methods:       
+                try:
+                    path = "data/{shape}/sonar_data.csv".format(shape=shape)
+                    anp_slam = AnPSonarSLAM(data_path=path, method=method)
+                    anp_slam.run()
+                    real_poses, estimated_poses = anp_slam.get_result()
+                    ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
+                    RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
+                    results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
+                    if method == "ToCAnP": x,y=ATE_t, RTE_t
+                    elif method == "CombineCIO": a,b=ATE_t, RTE_t
+                except:
+                    print("PROBLEM!")
+                    results_matrix[row_index] = [0, 0, 0, 0]
+                row_index += 1
+        all_results[seed_num] = results_matrix     
+        
+   
+
+    np.save('results/all_metrics_001.npy', all_results)
+    # 此处print会正常输出到控制台
+    print("DONE")
+    
+    
+    #     ##################################################################
+    # size = 1
     # all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
     # for seed_num in range(size):
     #     np.random.seed(seed_num)
@@ -377,6 +412,7 @@ if __name__ == "__main__":
     #     results_matrix = np.zeros((12, 4))
     #     row_index = 0  # To track the current row in the matrix
     #     for shape in trajectory_shape:
+    #         print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
     #         x,y = 0,0
     #         a,b = 0,0
     #         for method in methods:       
@@ -390,49 +426,25 @@ if __name__ == "__main__":
     #                 results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
     #                 if method == "ToCAnP": x,y=ATE_t, RTE_t
     #                 elif method == "CombineCIO": a,b=ATE_t, RTE_t
+    #                 print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
     #             except:
-    #                 print("PROBLEM!")
+    #                 print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
+    #                 print(seed_num)
     #                 results_matrix[row_index] = [0, 0, 0, 0]
     #             row_index += 1
+    #         print()
     #     all_results[seed_num] = results_matrix     
         
-   
-
-    # np.save('results/all_metrics_001.npy', all_results)
-    # # 此处print会正常输出到控制台
-    # print("DONE")
-    
-    
-    #     ##################################################################
-    size = 20
-    all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
-    for seed_num in range(size):
-        np.random.seed(20+seed_num)
-        GOOD_result = 0
-        print("Random Seed Number: ", seed_num)
-        results_matrix = np.zeros((12, 4))
-        row_index = 0  # To track the current row in the matrix
-        for shape in trajectory_shape:
-            print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
-            for method in methods:       
-                try:
-                    path = "data/{shape}/sonar_data.csv".format(shape=shape)
-                    anp_slam = AnPSonarSLAM(data_path=path, method=method)
-                    anp_slam.run()
-                    real_poses, estimated_poses = anp_slam.get_result()
-                    ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
-                    RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
-                    results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
-                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
-                except:
-                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
-                    print(seed_num)
-                    results_matrix[row_index] = [0, 0, 0, 0]
-                row_index += 1
-            print()
-        all_results[seed_num] = results_matrix     
+    #     if x<a or y<b:
+    #         GOOD_result += 1
+    #     if GOOD_result > 1:
+    #         print("================================================")
+    #         print("++++++++++++++ MAYBE a GOOD one! +++++++++++++++")
+    #         print("================================================")
+    #     else:
+    #         print()
         
-        print()
+    #     print()
 
     # np.save('results/all_metrics.npy', all_results)
     # # 此处print会正常输出到控制台
