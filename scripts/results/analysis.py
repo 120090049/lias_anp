@@ -107,7 +107,8 @@ def filter_good_result(results):
 methods = ["ToCAnP", "CombineCIO", "Nonapp", "App"]
 trajectory_shape = ['square', 'circle', 'eight']
 
-results = np.load("all_metrics_001_5000.npy")
+results = np.load("all_metrics_001_.npy")
+print(results[0])
 print(len(results))
 good_index = filter_good_result(results)
 print(good_index)

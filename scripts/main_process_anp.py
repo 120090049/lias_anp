@@ -30,7 +30,6 @@ from utils.transformation_matrix_add_noise import add_noise_to_pose
 from record.analysis_traj import calculate_ATE, calculate_RPE
 
 clp = 0 # 2 3 4 
-file_name = 'results/all_metrics_001_5000.npy'.format(clp)
 
 class AnPSonarSLAM:
     def __init__(self, data_path=None, method=None):
@@ -360,8 +359,9 @@ class AnPSonarSLAM:
 if __name__ == "__main__":
     methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
     trajectory_shape = ['square', 'circle', 'eight']
+    test_seed_num = 0
     if False:
-        np.random.seed(3467)  
+        np.random.seed(test_seed_num)  
         for shape in trajectory_shape:
             print(shape)
             print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
@@ -385,17 +385,17 @@ if __name__ == "__main__":
     ####################################################
     # import sys      
     else:
-        size = 1
+        file_name = 'results/all_metrics_001_5000.npy'
+        
+        size = 5000
         all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
         for seed_num in range(size):
-            np.random.seed(3466)
-            GOOD_result = 0
+            # np.random.seed(seed_num)
+            np.random.seed(seed_num)  
             print("Random Seed Number: ", seed_num)
             results_matrix = np.zeros((12, 4))
             row_index = 0  # To track the current row in the matrix
             for shape in trajectory_shape:
-                x,y = 0,0
-                a,b = 0,0
                 for method in methods:       
                     try:
                         path = "data/{shape}/sonar_data.csv".format(shape=shape)
@@ -405,11 +405,11 @@ if __name__ == "__main__":
                         ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
                         RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
                         results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
-                        if method == "ToCAnP": x,y=ATE_t, RTE_t
-                        elif method == "CombineCIO": a,b=ATE_t, RTE_t
+                    
                     except:
                         print("PROBLEM!")
                         results_matrix[row_index] = [0, 0, 0, 0]
+                        
                     row_index += 1
             all_results[seed_num] = results_matrix     
    
