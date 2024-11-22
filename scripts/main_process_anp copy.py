@@ -360,69 +360,60 @@ class AnPSonarSLAM:
 if __name__ == "__main__":
     methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
     trajectory_shape = ['square', 'circle', 'eight']
-    if False:
+    for method in methods:
         np.random.seed(3467)  
-        for shape in trajectory_shape:
-            print(shape)
-            print("{:<10} {:<8}  {:<8}  {:<8}  {:<8}".format("method", "ATE_t", "ATE_R", "RPE_t", "RPE_R"))
-            for method in methods:
-                try:
-                    path = "data/{shape}/sonar_data.csv".format(shape=shape)
-                    anp_slam = AnPSonarSLAM(data_path=path, method=method)
-                    anp_slam.run()
-                    real_poses, estimated_poses = anp_slam.get_result()
-                    ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
-                    RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
-                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
-
-                except:
-                        print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
-                    
+        anp_slam = AnPSonarSLAM(data_path="data/eight/sonar_data.csv", method=method)
+        anp_slam.run()
+        real_poses, estimated_poses = anp_slam.get_result()
+        ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
+        RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
+        print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
 
     
     ####################################################
     ################# BATCH EXPERIMENT #################
     ####################################################
     # import sys      
-    else:
-        size = 1
-        all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
-        for seed_num in range(size):
-            np.random.seed(3466)
-            GOOD_result = 0
-            print("Random Seed Number: ", seed_num)
-            results_matrix = np.zeros((12, 4))
-            row_index = 0  # To track the current row in the matrix
-            for shape in trajectory_shape:
-                x,y = 0,0
-                a,b = 0,0
-                for method in methods:       
-                    try:
-                        path = "data/{shape}/sonar_data.csv".format(shape=shape)
-                        anp_slam = AnPSonarSLAM(data_path=path, method=method)
-                        anp_slam.run()
-                        real_poses, estimated_poses = anp_slam.get_result()
-                        ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
-                        RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
-                        results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
-                        if method == "ToCAnP": x,y=ATE_t, RTE_t
-                        elif method == "CombineCIO": a,b=ATE_t, RTE_t
-                    except:
-                        print("PROBLEM!")
-                        results_matrix[row_index] = [0, 0, 0, 0]
-                    row_index += 1
-            all_results[seed_num] = results_matrix     
-   
-        print(all_results)
-        np.save(file_name, all_results)
-        print("DONE")
     
-    
-    # #     ##################################################################
-    # size = 2
+    # size = 1
     # all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
     # for seed_num in range(size):
     #     np.random.seed(seed_num)
+    #     GOOD_result = 0
+    #     print("Random Seed Number: ", seed_num)
+    #     results_matrix = np.zeros((12, 4))
+    #     row_index = 0  # To track the current row in the matrix
+    #     for shape in trajectory_shape:
+    #         x,y = 0,0
+    #         a,b = 0,0
+    #         for method in methods:       
+    #             try:
+    #                 path = "data/{shape}/sonar_data.csv".format(shape=shape)
+    #                 anp_slam = AnPSonarSLAM(data_path=path, method=method)
+    #                 anp_slam.run()
+    #                 real_poses, estimated_poses = anp_slam.get_result()
+    #                 ATE_t, ATE_R = calculate_ATE(real_poses, estimated_poses)
+    #                 RTE_t, RTE_R = calculate_RPE(real_poses, estimated_poses)
+    #                 results_matrix[row_index] = [ATE_t, ATE_R, RTE_t, RTE_R]
+    #                 if method == "ToCAnP": x,y=ATE_t, RTE_t
+    #                 elif method == "CombineCIO": a,b=ATE_t, RTE_t
+    #             except:
+    #                 print("PROBLEM!")
+    #                 results_matrix[row_index] = [0, 0, 0, 0]
+    #             row_index += 1
+    #     all_results[seed_num] = results_matrix     
+    # print(all_results)
+   
+    # np.save(file_name, all_results)
+    # # 此处print会正常输出到控制台
+    # print("DONE")
+    
+    
+    # #     ##################################################################
+    # size = 40
+    # all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
+    # for seed_num in range(size):
+    #     np.random.seed(40+seed_num)
     #     GOOD_result = 0
     #     print("Random Seed Number: ", seed_num)
     #     results_matrix = np.zeros((12, 4))
@@ -449,7 +440,7 @@ if __name__ == "__main__":
     #     all_results[seed_num] = results_matrix     
         
     #     print()
-    # print(all_results)
+
     # np.save('results/all_metrics.npy', all_results)
     # # 此处print会正常输出到控制台
     # print("DONE")
