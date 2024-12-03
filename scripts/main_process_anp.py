@@ -359,8 +359,9 @@ class AnPSonarSLAM:
 if __name__ == "__main__":
     methods = ['ToCAnP', 'CombineCIO', 'Nonapp', 'App']
     trajectory_shape = ['square', 'circle', 'eight']
-    test_seed_num = 0
-    if False:
+    # test_seed_num = 3509 # eight 
+    test_seed_num = 4396 # circle
+    if True:
         np.random.seed(test_seed_num)  
         for shape in trajectory_shape:
             print(shape)
@@ -376,7 +377,7 @@ if __name__ == "__main__":
                     print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, ATE_t, ATE_R, RTE_t, RTE_R))
 
                 except:
-                        print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
+                    print("{:<10} {:<8.4f}  {:<8.2f}  {:<8.4f}  {:<8.2f}".format(method, 0, 0, 0, 0))
                     
 
     
@@ -385,12 +386,14 @@ if __name__ == "__main__":
     ####################################################
     # import sys      
     else:
-        file_name = 'results/all_metrics_001_5000.npy'
-        
-        size = 5000
+        index = 4
+        file_name = 'results/all_metrics_{}.npy'.format(index)
+        print(file_name)
+        size = 1000
         all_results = np.zeros((size, 12, 4))  # (seed_num, methods, metrics)
-        for seed_num in range(size):
+        for i in range(size):
             # np.random.seed(seed_num)
+            seed_num = i+index*size
             np.random.seed(seed_num)  
             print("Random Seed Number: ", seed_num)
             results_matrix = np.zeros((12, 4))
@@ -411,7 +414,7 @@ if __name__ == "__main__":
                         results_matrix[row_index] = [0, 0, 0, 0]
                         
                     row_index += 1
-            all_results[seed_num] = results_matrix     
+            all_results[i] = results_matrix     
    
         print(all_results)
         np.save(file_name, all_results)

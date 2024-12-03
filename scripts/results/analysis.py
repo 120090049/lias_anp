@@ -92,7 +92,7 @@ def filter_good_result(results):
             App_t1 = results[seed_num][group*4 + 3][0]
             App_t2 = results[seed_num][group*4 + 3][2]
             # Print 4 methods for each group
-            if (ToCAnP_t1<CombineCIO_t1 and CombineCIO_t1<Nonapp_t1 and CombineCIO_t1<App_t1 and CombineCIO_t1<Nonapp_t1) or (ToCAnP_t2<CombineCIO_t2 and CombineCIO_t2<Nonapp_t2 and CombineCIO_t2<App_t2 and CombineCIO_t2<Nonapp_t2):
+            if (ToCAnP_t1<CombineCIO_t1 and CombineCIO_t1<App_t1 and App_t1<Nonapp_t1) or (ToCAnP_t2<CombineCIO_t2 and CombineCIO_t2<App_t2 and App_t2<Nonapp_t2):
             # if (ToCAnP_t1<CombineCIO_t1 ) or (ToCAnP_t2<CombineCIO_t2 ):
                 TAG = TAG * 1
             else:
@@ -107,20 +107,20 @@ def filter_good_result(results):
 methods = ["ToCAnP", "CombineCIO", "Nonapp", "App"]
 trajectory_shape = ['square', 'circle', 'eight']
 
-results = np.load("all_metrics_001_.npy")
-print(results[0])
-print(len(results))
+results = np.concatenate([np.load(f"metrics_{i}.npy") for i in range(5)], axis=0)  # 假设有10个文件
+
+# results2 = np.load("all_metrics_0.npy")
+
 good_index = filter_good_result(results)
 print(good_index)
 good_mat = np.stack([results[index] for index in good_index])
 
-print_all_res(good_mat[27:28])
-print(good_index[27])
-print(results[good_index[27]]) # 3466
+print_all_res(good_mat)
+# print(good_index[27])
+print(good_index[17])
+print(results[good_index[17]]) # 3466
 # for i in range(5,10):
-#     print_avg_res(results[i*10:i*10+10])
-#     print()
-
+#     print_avg_res(results[i*10:i*10+10])17
 # bad_index = filter_result(results)
 # print()
 
